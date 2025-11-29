@@ -79,6 +79,9 @@ const currentYear = new Date().getFullYear();
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
 
   <!-- Performance: Preconnect to external origins -->
@@ -148,7 +151,7 @@ const currentYear = new Date().getFullYear();
           </div>
         </div>
         <div class="footer-bottom">
-          <p>© {currentYear} {associationInfo.fullName}</p>
+          <p>© {currentYear} {associationInfo.fullName}. Tous droits réservés.</p>
         </div>
       </div>
     </footer>
@@ -258,14 +261,14 @@ const currentYear = new Date().getFullYear();
   }
 }
 
-/* Links - underline on hover */
-a {
+/* Links - underline on hover (except buttons) */
+a:not(.btn) {
   color: var(--color-primary);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
 
-a:hover {
+a:not(.btn):hover {
   color: var(--color-primary-light);
   text-decoration: underline;
 }
