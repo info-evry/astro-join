@@ -11,7 +11,7 @@ bucket = "./dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "join-db"
-database_id = "YOUR_DATABASE_ID"
+database_id = "cc6fa82d-8c6c-4fb2-8130-9544c3e304e9"
 
 # Environment variables
 [vars]
@@ -28,4 +28,4 @@ name = "join-info-evry"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "join-db"
-database_id = "YOUR_DATABASE_ID"
+database_id = "cc6fa82d-8c6c-4fb2-8130-9544c3e304e9"
