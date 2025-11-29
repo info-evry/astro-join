@@ -31,6 +31,14 @@ describe('Public API', () => {
       expect(data.config.membershipOpen).toBe(true);
       expect(data.config.currentYear).toBe('2024-2025');
     });
+
+    it('should return enrollment tracks', async () => {
+      const response = await SELF.fetch('http://localhost/api/config');
+      const data = await response.json();
+      expect(data.config.enrollmentTracks).toBeDefined();
+      expect(Array.isArray(data.config.enrollmentTracks)).toBe(true);
+      expect(data.config.enrollmentTracks).toContain('L3 Informatique');
+    });
   });
 
   describe('GET /api/stats', () => {
@@ -42,6 +50,18 @@ describe('Public API', () => {
       expect(data.stats).toBeDefined();
       expect(data.stats.activeMembers).toBe(0);
       expect(data.stats.pendingApplications).toBe(0);
+    });
+
+    it('should count active and pending members correctly', async () => {
+      // Add active member
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Active', 'User', 'active@test.com', 'L3 Informatique', 'active', '@active')`);
+      // Add pending member
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Pending', 'User', 'pending@test.com', 'L3 Informatique', 'pending', '@pending')`);
+
+      const response = await SELF.fetch('http://localhost/api/stats');
+      const data = await response.json();
+      expect(data.stats.activeMembers).toBe(1);
+      expect(data.stats.pendingApplications).toBe(1);
     });
   });
 
@@ -75,6 +95,61 @@ describe('Public API', () => {
       expect(member.status).toBe('pending');
     });
 
+    it('should record membership history on application', async () => {
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'History',
+          lastName: 'Test',
+          email: 'history@test.com',
+          enrollmentTrack: 'L3 Informatique',
+          phone: '0612345678'
+        })
+      });
+
+      const data = await response.json();
+      const history = await env.DB.prepare(
+        'SELECT * FROM membership_history WHERE member_id = ?'
+      ).bind(data.memberId).first();
+
+      expect(history).toBeDefined();
+      expect(history.new_status).toBe('pending');
+      expect(history.reason).toContain('Application');
+    });
+
+    it('should accept application with phone only', async () => {
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'Phone',
+          lastName: 'Only',
+          email: 'phone@test.com',
+          enrollmentTrack: 'L3 Informatique',
+          phone: '0612345678'
+        })
+      });
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should accept application with telegram only', async () => {
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'Telegram',
+          lastName: 'Only',
+          email: 'telegram@test.com',
+          enrollmentTrack: 'L3 Informatique',
+          telegram: '@telegramuser'
+        })
+      });
+
+      expect(response.status).toBe(200);
+    });
+
     it('should reject application without contact method', async () => {
       const response = await SELF.fetch('http://localhost/api/apply', {
         method: 'POST',
@@ -92,7 +167,7 @@ describe('Public API', () => {
       expect(data.error).toContain('contact');
     });
 
-    it('should reject duplicate email', async () => {
+    it('should reject duplicate email for pending application', async () => {
       // First application
       await SELF.fetch('http://localhost/api/apply', {
         method: 'POST',
@@ -120,6 +195,30 @@ describe('Public API', () => {
       });
 
       expect(response.status).toBe(409);
+      const data = await response.json();
+      expect(data.error).toContain('attente');
+    });
+
+    it('should reject duplicate email for active member', async () => {
+      // Create active member directly
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Active', 'Member', 'active@test.com', 'L3 Informatique', 'active', '@active')`);
+
+      // Try to apply with same email
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'New',
+          lastName: 'User',
+          email: 'active@test.com',
+          enrollmentTrack: 'M1 Informatique',
+          telegram: '@newuser'
+        })
+      });
+
+      expect(response.status).toBe(409);
+      const data = await response.json();
+      expect(data.error).toContain('actif');
     });
 
     it('should reject missing required fields', async () => {
@@ -132,6 +231,69 @@ describe('Public API', () => {
       });
 
       expect(response.status).toBe(400);
+    });
+
+    it('should reject invalid email format', async () => {
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'invalid-email',
+          enrollmentTrack: 'L3 Informatique',
+          discord: '@johndoe'
+        })
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain('invalide');
+    });
+
+    it('should normalize email to lowercase', async () => {
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'Upper',
+          lastName: 'Case',
+          email: 'UPPER.CASE@TEST.COM',
+          enrollmentTrack: 'L3 Informatique',
+          discord: '@upper'
+        })
+      });
+
+      expect(response.status).toBe(200);
+
+      const member = await env.DB.prepare(
+        'SELECT email FROM members WHERE email = ?'
+      ).bind('upper.case@test.com').first();
+
+      expect(member).toBeDefined();
+    });
+
+    it('should trim whitespace from fields', async () => {
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: '  John  ',
+          lastName: '  Doe  ',
+          email: 'trim@test.com',
+          enrollmentTrack: 'L3 Informatique',
+          discord: '  @johndoe  '
+        })
+      });
+
+      expect(response.status).toBe(200);
+
+      const member = await env.DB.prepare(
+        'SELECT * FROM members WHERE email = ?'
+      ).bind('trim@test.com').first();
+
+      expect(member.first_name).toBe('John');
+      expect(member.last_name).toBe('Doe');
     });
   });
 });
@@ -151,6 +313,13 @@ describe('Admin API', () => {
     it('should reject requests with invalid token', async () => {
       const response = await SELF.fetch('http://localhost/api/admin/members', {
         headers: { 'Authorization': 'Bearer invalid-token' }
+      });
+      expect(response.status).toBe(401);
+    });
+
+    it('should reject requests with malformed Authorization header', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/members', {
+        headers: { 'Authorization': 'InvalidFormat' }
       });
       expect(response.status).toBe(401);
     });
@@ -181,6 +350,38 @@ describe('Admin API', () => {
       expect(data.stats.total).toBe(1);
       expect(data.stats.active).toBe(1);
     });
+
+    it('should return empty list when no members', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/members', {
+        headers: adminHeaders
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.members).toHaveLength(0);
+      expect(data.stats.total).toBe(0);
+    });
+  });
+
+  describe('GET /api/admin/stats', () => {
+    it('should return comprehensive admin stats', async () => {
+      // Add members with different statuses and tracks
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('L3', 'Active', 'l3active@test.com', 'L3 Informatique', 'active', '@l3')`);
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('M1', 'Active', 'm1active@test.com', 'M1 Informatique', 'active', '@m1')`);
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Pending', 'User', 'pending@test.com', 'L3 Informatique', 'pending', '@pending')`);
+
+      const response = await SELF.fetch('http://localhost/api/admin/stats', {
+        headers: adminHeaders
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.stats.total).toBe(3);
+      expect(data.stats.active).toBe(2);
+      expect(data.stats.pending).toBe(1);
+      expect(data.trackDistribution).toBeDefined();
+      expect(data.recentApplications).toBeDefined();
+    });
   });
 
   describe('PUT /api/admin/members/:id', () => {
@@ -210,6 +411,28 @@ describe('Admin API', () => {
       expect(member.approved_at).toBeDefined();
     });
 
+    it('should set expires_at when approving member', async () => {
+      const result = await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('Expiry', 'Test', 'expiry@example.com', 'L3 Informatique', 'pending', '@expiry').run();
+
+      const memberId = result.meta.last_row_id;
+
+      await SELF.fetch(`http://localhost/api/admin/members/${memberId}`, {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({ status: 'active' })
+      });
+
+      const member = await env.DB.prepare(
+        'SELECT expires_at FROM members WHERE id = ?'
+      ).bind(memberId).first();
+
+      expect(member.expires_at).toBeDefined();
+      expect(member.expires_at).toContain('-08-31');
+    });
+
     it('should update member details', async () => {
       const result = await env.DB.prepare(`
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
@@ -237,6 +460,39 @@ describe('Admin API', () => {
       expect(member.first_name).toBe('Updated');
       expect(member.last_name).toBe('Name');
       expect(member.notes).toBe('Test notes');
+    });
+
+    it('should return 404 for non-existent member', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/members/99999', {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({ status: 'active' })
+      });
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should record status change in history', async () => {
+      const result = await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('History', 'Test', 'history@example.com', 'L3 Informatique', 'pending', '@history').run();
+
+      const memberId = result.meta.last_row_id;
+
+      await SELF.fetch(`http://localhost/api/admin/members/${memberId}`, {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({ status: 'active', reason: 'Approved by admin' })
+      });
+
+      const history = await env.DB.prepare(
+        'SELECT * FROM membership_history WHERE member_id = ? ORDER BY id DESC LIMIT 1'
+      ).bind(memberId).first();
+
+      expect(history.old_status).toBe('pending');
+      expect(history.new_status).toBe('active');
+      expect(history.reason).toBe('Approved by admin');
     });
   });
 
@@ -302,6 +558,63 @@ describe('Admin API', () => {
 
       expect(updated.count).toBe(3);
     });
+
+    it('should reject empty memberIds array', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/members/batch', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          memberIds: [],
+          status: 'active'
+        })
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should reject invalid status', async () => {
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Test', 'User', 'test@example.com', 'L3 Informatique', 'pending', '@test')`);
+
+      const members = await env.DB.prepare('SELECT id FROM members').all();
+      const memberIds = members.results.map(m => m.id);
+
+      const response = await SELF.fetch('http://localhost/api/admin/members/batch', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          memberIds,
+          status: 'invalid_status'
+        })
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should batch reject members', async () => {
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Reject1', 'Test', 'reject1@example.com', 'L3 Informatique', 'pending', '@r1')`);
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Reject2', 'Test', 'reject2@example.com', 'L3 Informatique', 'pending', '@r2')`);
+
+      const members = await env.DB.prepare('SELECT id FROM members').all();
+      const memberIds = members.results.map(m => m.id);
+
+      const response = await SELF.fetch('http://localhost/api/admin/members/batch', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          memberIds,
+          status: 'rejected',
+          reason: 'Test rejection'
+        })
+      });
+
+      expect(response.status).toBe(200);
+
+      const rejected = await env.DB.prepare(
+        "SELECT COUNT(*) as count FROM members WHERE status = 'rejected'"
+      ).first();
+
+      expect(rejected.count).toBe(2);
+    });
   });
 
   describe('GET /api/admin/export', () => {
@@ -335,6 +648,35 @@ describe('Admin API', () => {
       expect(csv).toContain('active@example.com');
       expect(csv).not.toContain('pending@example.com');
     });
+
+    it('should have proper CSV headers', async () => {
+      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Test', 'User', 'test@example.com', 'L3 Informatique', 'active', '@test')`);
+
+      const response = await SELF.fetch('http://localhost/api/admin/export', {
+        headers: adminHeaders
+      });
+
+      const csv = await response.text();
+      expect(csv).toContain('Prénom');
+      expect(csv).toContain('Nom');
+      expect(csv).toContain('Email');
+      expect(csv).toContain('Statut');
+    });
+
+    it('should escape special characters in CSV', async () => {
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, notes, discord)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind('Test', 'User"Quote', 'special@example.com', 'L3 Informatique', 'active', 'Note with "quotes"', '@test').run();
+
+      const response = await SELF.fetch('http://localhost/api/admin/export', {
+        headers: adminHeaders
+      });
+
+      expect(response.status).toBe(200);
+      const csv = await response.text();
+      expect(csv).toContain('""');
+    });
   });
 
   describe('Settings', () => {
@@ -366,6 +708,27 @@ describe('Admin API', () => {
       ).first();
 
       expect(settings.value).toBe('2025-2026');
+    });
+
+    it('should handle object settings (JSON)', async () => {
+      const tracks = ['L1', 'L2', 'L3', 'M1', 'M2'];
+      
+      const response = await SELF.fetch('http://localhost/api/admin/settings', {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          enrollment_tracks: tracks
+        })
+      });
+
+      expect(response.status).toBe(200);
+
+      const getResponse = await SELF.fetch('http://localhost/api/admin/settings', {
+        headers: adminHeaders
+      });
+
+      const data = await getResponse.json();
+      expect(data.settings.enrollment_tracks).toEqual(tracks);
     });
   });
 });
