@@ -5,6 +5,7 @@ import associationInfo from '../../knowledge/src/association/info.json';
 interface Props {
   title: string;
   description?: string;
+  image?: string;
   showHeader?: boolean;
   showFooter?: boolean;
   noindex?: boolean;
@@ -13,14 +14,31 @@ interface Props {
 const {
   title,
   description = "Rejoignez l'Association Info Evry",
+  image = "/og-image.png",
   showHeader = true,
   showFooter = true,
   noindex = false
 } = Astro.props;
 
-const siteUrl = associationInfo.sites.asso.url;
+const assoUrl = associationInfo.sites.asso.url;
+const siteUrl = associationInfo.sites.join?.url || assoUrl;
 const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
-const ogImageUrl = new URL('/og-image.png', siteUrl).href;
+const ogImageUrl = new URL(image, siteUrl).href;
+
+const navLinks = [
+  { href: `${assoUrl}/#a-propos`, label: 'À propos' },
+  { href: `${assoUrl}/#ressources`, label: 'Ressources' },
+  { href: `${assoUrl}/#ndi`, label: 'Nuit de l\'Info' },
+];
+
+const socialLinks = [
+  { name: 'Discord', href: associationInfo.social.discord.url },
+  { name: 'Telegram', href: associationInfo.social.telegram.url },
+  { name: 'Instagram', href: associationInfo.social.instagram.url },
+  { name: 'GitHub', href: associationInfo.social.github.url },
+];
+
+const currentYear = new Date().getFullYear();
 ---
 
 <!DOCTYPE html>
@@ -28,9 +46,17 @@ const ogImageUrl = new URL('/og-image.png', siteUrl).href;
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Primary Meta Tags -->
   <title>{title}</title>
+  <meta name="title" content={title}>
   <meta name="description" content={description}>
+  <meta name="author" content={associationInfo.fullName}>
+  <meta name="theme-color" content="#0ea5e9">
+  <meta name="color-scheme" content="dark">
   {noindex && <meta name="robots" content="noindex, nofollow">}
+
+  <!-- Canonical URL -->
   <link rel="canonical" href={canonicalUrl}>
 
   <!-- Open Graph / Facebook -->
@@ -39,6 +65,8 @@ const ogImageUrl = new URL('/og-image.png', siteUrl).href;
   <meta property="og:title" content={title}>
   <meta property="og:description" content={description}>
   <meta property="og:image" content={ogImageUrl}>
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta property="og:locale" content="fr_FR">
   <meta property="og:site_name" content={associationInfo.name}>
 
@@ -52,22 +80,46 @@ const ogImageUrl = new URL('/og-image.png', siteUrl).href;
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="manifest" href="/site.webmanifest">
-  <meta name="theme-color" content="#0ea5e9">
+
+  <!-- Performance: Preconnect to external origins -->
+  <link rel="preconnect" href="https://rsms.me" crossorigin>
+  <link rel="dns-prefetch" href="https://rsms.me">
+
+  <!-- Inter Font -->
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
 </head>
 <body>
   {showHeader && (
     <header class="header">
       <div class="header-container container">
-        <a href="/" class="header-logo">
-          <span class="logo-icon">IE</span>
-          <span class="logo-text">Adhésion</span>
+        <a href={assoUrl} class="logo">
+          <span class="logo-text">Asso Info</span>
+          <span class="logo-accent">Évry</span>
         </a>
-        <nav class="header-nav">
-          <a href={associationInfo.sites.asso.url} class="nav-link">Accueil</a>
-          <a href={associationInfo.social.discord.url} class="btn btn-primary btn-sm" target="_blank" rel="noopener">
-            Discord
-          </a>
+
+        <nav class="nav">
+          {navLinks.map(link => (
+            <a href={link.href} class="nav-link">{link.label}</a>
+          ))}
         </nav>
+
+        <div class="header-actions">
+          <a href={`${assoUrl}/#adhesion`} class="btn btn-primary btn-header">Adhérer</a>
+        </div>
+
+        <input type="checkbox" id="mobile-menu-toggle" class="mobile-menu-checkbox" aria-label="Menu" />
+        <label for="mobile-menu-toggle" class="mobile-menu-btn">
+          <span class="hamburger"></span>
+        </label>
+
+        <div class="mobile-nav">
+          <nav class="mobile-nav-links">
+            {navLinks.map(link => (
+              <a href={link.href} class="mobile-nav-link">{link.label}</a>
+            ))}
+            <a href={`${assoUrl}/#adhesion`} class="btn btn-primary mobile-cta">Adhérer à l'association</a>
+          </nav>
+        </div>
       </div>
     </header>
   )}
@@ -75,16 +127,28 @@ const ogImageUrl = new URL('/og-image.png', siteUrl).href;
   <slot />
 
   {showFooter && (
-    <footer class="footer">
-      <div class="footer-container container">
-        <p class="footer-text">
-          &copy; {new Date().getFullYear()} {associationInfo.name}
-        </p>
-        <div class="footer-links">
-          <a href={associationInfo.social.discord.url} target="_blank" rel="noopener">Discord</a>
-          <a href={associationInfo.social.telegram.url} target="_blank" rel="noopener">Telegram</a>
-          <a href={associationInfo.social.instagram.url} target="_blank" rel="noopener">Instagram</a>
-          <a href={associationInfo.social.github.url} target="_blank" rel="noopener">GitHub</a>
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <a href={assoUrl} class="footer-logo">
+              <span class="logo-text">Asso Info</span>
+              <span class="logo-accent">Évry</span>
+            </a>
+            <p class="footer-tagline">{associationInfo.description}</p>
+          </div>
+          <div class="footer-social">
+            <div class="social-links">
+              {socialLinks.map(social => (
+                <a href={social.href} class="social-link" target="_blank" rel="noopener noreferrer" title={social.name}>
+                  {social.name}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>© {currentYear} {associationInfo.fullName}</p>
         </div>
       </div>
     </footer>
@@ -92,116 +156,139 @@ const ogImageUrl = new URL('/og-image.png', siteUrl).href;
 </body>
 </html>
 
-<style>
-  /* Header Styles */
-  .header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border-subtle);
-  }
+<style is:global>
+/* ===========================================
+   Join-Specific Styles
+   Styles that extend or override the design system
+   =========================================== */
 
-  .header-container {
-    display: flex;
-    justify-content: space-between;
+/* Container - narrower for form */
+.container {
+  max-width: 960px;
+  padding: var(--space-8) var(--space-4);
+}
+
+/* Header container should use design system defaults */
+.header-container.container {
+  padding: 0 var(--container-padding);
+  max-width: var(--container-max);
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: var(--space-6) var(--space-4);
+  }
+}
+
+/* Footer */
+.site-footer {
+  margin-top: var(--space-16);
+  padding: var(--space-12) 0 var(--space-8);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--color-bg-subtle);
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-8);
+  margin-bottom: var(--space-8);
+}
+
+.footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: var(--space-3);
+  text-decoration: none;
+}
+
+.footer-logo:hover {
+  text-decoration: none;
+}
+
+.footer-tagline {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  max-width: 400px;
+}
+
+.footer-social .social-links {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.footer-social .social-link {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.footer-social .social-link:hover {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.footer-bottom {
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-subtle);
+  text-align: center;
+}
+
+.footer-bottom p {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .footer-content {
+    flex-direction: column;
     align-items: center;
-    padding-top: var(--space-3);
-    padding-bottom: var(--space-3);
+    text-align: center;
   }
 
-  .header-container.container {
-    padding-left: var(--container-padding);
-    padding-right: var(--container-padding);
-    max-width: var(--container-max);
+  .footer-tagline {
+    max-width: 100%;
   }
+}
 
-  .header-logo {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    text-decoration: none;
-    color: var(--color-text);
-    font-weight: 600;
-  }
+/* Links - underline on hover */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
 
-  .logo-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-    border-radius: var(--radius);
-    font-size: var(--text-xs);
-    font-weight: 700;
-    color: white;
-  }
+a:hover {
+  color: var(--color-primary-light);
+  text-decoration: underline;
+}
 
-  .logo-text {
-    font-size: var(--text-base);
-  }
+/* Button overrides for flat primary style */
+.btn-primary {
+  background: var(--gradient-primary);
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.4);
+}
 
-  .header-nav {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-  }
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
+}
 
-  .nav-link {
-    color: var(--color-text-secondary);
-    text-decoration: none;
-    font-size: var(--text-sm);
-    transition: color var(--transition-fast);
-  }
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--color-text);
+}
 
-  .nav-link:hover {
-    color: var(--color-text);
-  }
-
-  /* Footer Styles */
-  .footer {
-    border-top: 1px solid var(--border-subtle);
-    padding: var(--space-8) 0;
-    background: var(--color-bg);
-  }
-
-  .footer-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--space-4);
-  }
-
-  .footer-text {
-    color: var(--color-text-muted);
-    font-size: var(--text-sm);
-    margin: 0;
-  }
-
-  .footer-links {
-    display: flex;
-    gap: var(--space-4);
-  }
-
-  .footer-links a {
-    color: var(--color-text-muted);
-    text-decoration: none;
-    font-size: var(--text-sm);
-    transition: color var(--transition-fast);
-  }
-
-  .footer-links a:hover {
-    color: var(--color-primary);
-  }
-
-  @media (max-width: 600px) {
-    .footer-container {
-      flex-direction: column;
-      text-align: center;
-    }
-  }
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-hover);
+}
 </style>
