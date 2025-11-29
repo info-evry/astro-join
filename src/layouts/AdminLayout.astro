@@ -1,0 +1,18 @@
+---
+import BaseLayout from './BaseLayout.astro';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<BaseLayout title={title} description="Administration des adhésions - Asso Info Evry" showHeader={false} showFooter={false} noindex={true}>
+  <slot />
+</BaseLayout>
+
+<style is:global>
+/* Admin Dashboard Styles - Using shared admin.css from design system */
+/* Additional page-specific overrides only */
+</style>

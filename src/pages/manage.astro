@@ -1,0 +1,741 @@
+---
+import AdminLayout from '../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Gestion des adhésions - Asso Info Evry">
+  <!-- Admin Hero Header -->
+  <section class="page-hero">
+    <div class="page-hero-bg">
+      <div class="orb orb-blue"></div>
+      <div class="orb orb-indigo"></div>
+    </div>
+    <div class="page-hero-content container">
+      <h1 class="page-hero-title">
+        <span>Gestion des</span>
+        <span class="gradient-text">Adhésions</span>
+      </h1>
+      <p class="page-hero-subtitle">Administration des membres de l'association</p>
+    </div>
+  </section>
+
+  <main class="container admin">
+    <!-- Auth Section -->
+    <section id="auth-section" class="section glass-card">
+      <h2>Authentification</h2>
+      <div class="form-group">
+        <label for="admin-token">Token d'administration</label>
+        <input type="password" id="admin-token" placeholder="Entrez votre token...">
+      </div>
+      <button type="button" id="auth-btn" class="btn btn-primary">Connexion</button>
+      <p id="auth-error" class="error-text hidden"></p>
+    </section>
+
+    <!-- Admin Content -->
+    <div id="admin-content" class="hidden">
+      <!-- Stats Section -->
+      <div class="disclosure-group open" data-disclosure="stats">
+        <div class="disclosure-header" onclick="toggleDisclosure('stats')">
+          <h2><span class="disclosure-chevron">&#9654;</span> Vue d'ensemble</h2>
+          <div class="header-actions" onclick="event.stopPropagation()">
+            <button type="button" id="export-btn" class="btn btn-secondary btn-sm">Exporter CSV</button>
+            <button type="button" id="refresh-btn" class="btn btn-secondary btn-sm">Rafraîchir</button>
+          </div>
+        </div>
+        <div class="disclosure-body">
+          <div id="stats-grid" class="stats-grid"></div>
+        </div>
+      </div>
+
+      <!-- Pending Applications -->
+      <div class="disclosure-group open" data-disclosure="pending">
+        <div class="disclosure-header" onclick="toggleDisclosure('pending')">
+          <h2><span class="disclosure-chevron">&#9654;</span> Demandes en attente <span id="pending-badge" class="disclosure-badge">0</span></h2>
+          <div class="header-actions" onclick="event.stopPropagation()">
+            <button type="button" id="approve-all-btn" class="btn btn-primary btn-sm" disabled>Tout approuver</button>
+          </div>
+        </div>
+        <div class="disclosure-body">
+          <div id="pending-container"></div>
+        </div>
+      </div>
+
+      <!-- All Members -->
+      <div class="disclosure-group open" data-disclosure="members">
+        <div class="disclosure-header" onclick="toggleDisclosure('members')">
+          <h2><span class="disclosure-chevron">&#9654;</span> Tous les membres <span id="members-badge" class="disclosure-badge">0</span></h2>
+        </div>
+        <div class="disclosure-body">
+          <div class="quick-actions" style="margin-bottom: var(--space-4);">
+            <select id="filter-status" class="form-group" style="margin: 0; width: auto;">
+              <option value="">Tous les statuts</option>
+              <option value="active">Actifs</option>
+              <option value="pending">En attente</option>
+              <option value="rejected">Refusés</option>
+              <option value="expired">Expirés</option>
+            </select>
+            <select id="filter-track" class="form-group" style="margin: 0; width: auto;">
+              <option value="">Tous les cursus</option>
+            </select>
+          </div>
+          <div id="members-container"></div>
+        </div>
+      </div>
+
+      <!-- Settings Section -->
+      <div class="disclosure-group" data-disclosure="settings">
+        <div class="disclosure-header" onclick="toggleDisclosure('settings')">
+          <h2><span class="disclosure-chevron">&#9654;</span> Paramètres</h2>
+          <div class="header-actions" onclick="event.stopPropagation()">
+            <button type="button" id="save-settings-btn" class="btn btn-primary btn-sm" disabled>Enregistrer</button>
+          </div>
+        </div>
+        <div class="disclosure-body">
+          <div class="settings-card">
+            <h3>Inscriptions</h3>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="setting-membership-open" checked>
+                Accepter les nouvelles demandes d'adhésion
+              </label>
+            </div>
+            <div class="form-group">
+              <label for="setting-current-year">Année universitaire</label>
+              <input type="text" id="setting-current-year" value="2024-2025" placeholder="2024-2025">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Member Modal -->
+    <div id="member-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 id="member-modal-title">Modifier le membre</h3>
+        <form id="member-form">
+          <input type="hidden" id="member-form-id">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="member-form-firstname">Prénom *</label>
+              <input type="text" id="member-form-firstname" required>
+            </div>
+            <div class="form-group">
+              <label for="member-form-lastname">Nom *</label>
+              <input type="text" id="member-form-lastname" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="member-form-email">Email *</label>
+            <input type="email" id="member-form-email" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="member-form-track">Cursus</label>
+              <select id="member-form-track">
+                <option value="L1 Informatique">L1 Informatique</option>
+                <option value="L2 Informatique">L2 Informatique</option>
+                <option value="L3 Informatique">L3 Informatique</option>
+                <option value="M1 Informatique">M1 Informatique</option>
+                <option value="M2 Informatique">M2 Informatique</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="member-form-status">Statut</label>
+              <select id="member-form-status">
+                <option value="pending">En attente</option>
+                <option value="active">Actif</option>
+                <option value="rejected">Refusé</option>
+                <option value="expired">Expiré</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="member-form-notes">Notes</label>
+            <textarea id="member-form-notes" rows="2"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('member-modal')">Annuler</button>
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Confirmer l'action</h3>
+        <p id="confirm-message"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('confirm-modal')">Annuler</button>
+          <button type="button" id="confirm-btn" class="btn btn-danger">Confirmer</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</AdminLayout>
+
+<script>
+/**
+ * Membership Admin Dashboard
+ */
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ============================================================
+// TOAST NOTIFICATIONS
+// ============================================================
+
+function showToast(message, type = 'success', duration = 3000) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+function toastSuccess(message) { showToast(message, 'success'); }
+function toastError(message) { showToast(message, 'error'); }
+
+// ============================================================
+// API FUNCTIONS
+// ============================================================
+
+let adminToken = localStorage.getItem('join_admin_token') || '';
+
+async function api(endpoint, options = {}) {
+  const response = await fetch(`/api${endpoint}`, {
+    headers: {
+      'Authorization': `Bearer ${adminToken}`,
+      'Content-Type': 'application/json',
+      ...options.headers
+    },
+    ...options
+  });
+
+  if (response.status === 401) {
+    throw new Error('Unauthorized');
+  }
+
+  if (response.headers.get('Content-Type')?.includes('text/csv')) {
+    return response;
+  }
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Request failed');
+  }
+
+  return response.json();
+}
+
+// ============================================================
+// STATE
+// ============================================================
+
+let membersData = [];
+let statsData = null;
+
+// ============================================================
+// DOM ELEMENTS
+// ============================================================
+
+const elements = {
+  authSection: $('auth-section'),
+  adminContent: $('admin-content'),
+  tokenInput: $('admin-token'),
+  authBtn: $('auth-btn'),
+  authError: $('auth-error'),
+  statsGrid: $('stats-grid'),
+  pendingContainer: $('pending-container'),
+  pendingBadge: $('pending-badge'),
+  membersContainer: $('members-container'),
+  membersBadge: $('members-badge'),
+  filterStatus: $('filter-status'),
+  filterTrack: $('filter-track'),
+  exportBtn: $('export-btn'),
+  refreshBtn: $('refresh-btn'),
+  approveAllBtn: $('approve-all-btn'),
+  memberModal: $('member-modal'),
+  memberForm: $('member-form'),
+  confirmModal: $('confirm-modal'),
+  confirmBtn: $('confirm-btn'),
+  saveSettingsBtn: $('save-settings-btn')
+};
+
+// ============================================================
+// MODAL & DISCLOSURE
+// ============================================================
+
+window.closeModal = function(modalId) {
+  $(modalId).classList.add('hidden');
+};
+
+function openModal(modalId) {
+  $(modalId).classList.remove('hidden');
+}
+
+window.toggleDisclosure = function(name) {
+  const group = document.querySelector(`[data-disclosure="${name}"]`);
+  if (group) group.classList.toggle('open');
+};
+
+// ============================================================
+// RENDER FUNCTIONS
+// ============================================================
+
+function renderStats(stats) {
+  elements.statsGrid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value">${stats.active}</div>
+      <div class="stat-label">Membres actifs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${stats.pending}</div>
+      <div class="stat-label">En attente</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${stats.total}</div>
+      <div class="stat-label">Total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${stats.expired}</div>
+      <div class="stat-label">Expirés</div>
+    </div>
+  `;
+}
+
+function renderPendingApplications(members) {
+  const pending = members.filter(m => m.status === 'pending');
+  elements.pendingBadge.textContent = pending.length;
+  elements.approveAllBtn.disabled = pending.length === 0;
+
+  if (pending.length === 0) {
+    elements.pendingContainer.innerHTML = '<p class="text-muted">Aucune demande en attente</p>';
+    return;
+  }
+
+  elements.pendingContainer.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Email</th>
+          <th>Cursus</th>
+          <th>Contact</th>
+          <th>Date</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${pending.map(m => `
+          <tr data-id="${m.id}">
+            <td>${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</td>
+            <td><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></td>
+            <td>${escapeHtml(m.enrollment_track)}</td>
+            <td>${getContactInfo(m)}</td>
+            <td>${formatDate(m.created_at)}</td>
+            <td class="actions-col">
+              <button class="btn btn-sm btn-primary" onclick="approveMember(${m.id})">Approuver</button>
+              <button class="btn btn-sm btn-danger" onclick="rejectMember(${m.id})">Refuser</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderMembers(members) {
+  const statusFilter = elements.filterStatus.value;
+  const trackFilter = elements.filterTrack.value;
+
+  let filtered = members;
+  if (statusFilter) filtered = filtered.filter(m => m.status === statusFilter);
+  if (trackFilter) filtered = filtered.filter(m => m.enrollment_track === trackFilter);
+
+  elements.membersBadge.textContent = filtered.length;
+
+  if (filtered.length === 0) {
+    elements.membersContainer.innerHTML = '<p class="text-muted">Aucun membre trouvé</p>';
+    return;
+  }
+
+  elements.membersContainer.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Email</th>
+          <th>Cursus</th>
+          <th>Statut</th>
+          <th>Date</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map(m => `
+          <tr data-id="${m.id}">
+            <td>${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</td>
+            <td><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></td>
+            <td>${escapeHtml(m.enrollment_track)}</td>
+            <td><span class="badge badge-${getStatusClass(m.status)}">${getStatusLabel(m.status)}</span></td>
+            <td>${formatDate(m.created_at)}</td>
+            <td class="actions-col">
+              <button class="btn btn-sm btn-secondary" onclick="editMember(${m.id})">Modifier</button>
+              <button class="btn btn-sm btn-danger" onclick="confirmDeleteMember(${m.id})">×</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function getContactInfo(m) {
+  const contacts = [];
+  if (m.phone) contacts.push(`Tel: ${escapeHtml(m.phone)}`);
+  if (m.telegram) contacts.push(`TG: ${escapeHtml(m.telegram)}`);
+  if (m.discord) contacts.push(`DC: ${escapeHtml(m.discord)}`);
+  return contacts.length > 0 ? contacts.join('<br>') : '-';
+}
+
+function getStatusClass(status) {
+  const classes = {
+    'active': 'success',
+    'pending': 'warning',
+    'rejected': 'error',
+    'expired': 'secondary'
+  };
+  return classes[status] || 'secondary';
+}
+
+function getStatusLabel(status) {
+  const labels = {
+    'active': 'Actif',
+    'pending': 'En attente',
+    'rejected': 'Refusé',
+    'expired': 'Expiré'
+  };
+  return labels[status] || status;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('fr-FR');
+}
+
+function populateTrackFilter(members) {
+  const tracks = [...new Set(members.map(m => m.enrollment_track))].sort();
+  elements.filterTrack.innerHTML = '<option value="">Tous les cursus</option>' +
+    tracks.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+}
+
+// ============================================================
+// MEMBER ACTIONS
+// ============================================================
+
+window.approveMember = async function(id) {
+  try {
+    await api(`/admin/members/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'active', reason: 'Approved by admin' })
+    });
+    toastSuccess('Membre approuvé');
+    loadData();
+  } catch (err) {
+    toastError(err.message);
+  }
+};
+
+window.rejectMember = async function(id) {
+  $('confirm-message').textContent = 'Êtes-vous sûr de vouloir refuser cette demande ?';
+  elements.confirmBtn.onclick = async () => {
+    try {
+      await api(`/admin/members/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'rejected', reason: 'Rejected by admin' })
+      });
+      toastSuccess('Demande refusée');
+      closeModal('confirm-modal');
+      loadData();
+    } catch (err) {
+      toastError(err.message);
+    }
+  };
+  openModal('confirm-modal');
+};
+
+window.editMember = function(id) {
+  const member = membersData.find(m => m.id === id);
+  if (!member) return;
+
+  $('member-modal-title').textContent = 'Modifier le membre';
+  $('member-form-id').value = id;
+  $('member-form-firstname').value = member.first_name;
+  $('member-form-lastname').value = member.last_name;
+  $('member-form-email').value = member.email;
+  $('member-form-track').value = member.enrollment_track;
+  $('member-form-status').value = member.status;
+  $('member-form-notes').value = member.notes || '';
+  openModal('member-modal');
+};
+
+window.confirmDeleteMember = function(id) {
+  const member = membersData.find(m => m.id === id);
+  $('confirm-message').textContent = `Êtes-vous sûr de vouloir supprimer ${member?.first_name} ${member?.last_name} ?`;
+  elements.confirmBtn.onclick = async () => {
+    try {
+      await api(`/admin/members/${id}`, { method: 'DELETE' });
+      toastSuccess('Membre supprimé');
+      closeModal('confirm-modal');
+      loadData();
+    } catch (err) {
+      toastError(err.message);
+    }
+  };
+  openModal('confirm-modal');
+};
+
+async function handleMemberSubmit(e) {
+  e.preventDefault();
+  const id = $('member-form-id').value;
+
+  try {
+    await api(`/admin/members/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        firstName: $('member-form-firstname').value,
+        lastName: $('member-form-lastname').value,
+        email: $('member-form-email').value,
+        enrollmentTrack: $('member-form-track').value,
+        status: $('member-form-status').value,
+        notes: $('member-form-notes').value
+      })
+    });
+    toastSuccess('Membre mis à jour');
+    closeModal('member-modal');
+    loadData();
+  } catch (err) {
+    toastError(err.message);
+  }
+}
+
+async function approveAll() {
+  const pending = membersData.filter(m => m.status === 'pending');
+  if (pending.length === 0) return;
+
+  $('confirm-message').textContent = `Approuver ${pending.length} demande(s) ?`;
+  elements.confirmBtn.className = 'btn btn-primary';
+  elements.confirmBtn.textContent = 'Approuver';
+  elements.confirmBtn.onclick = async () => {
+    try {
+      await api('/admin/members/batch', {
+        method: 'POST',
+        body: JSON.stringify({
+          memberIds: pending.map(m => m.id),
+          status: 'active',
+          reason: 'Batch approved by admin'
+        })
+      });
+      toastSuccess(`${pending.length} membre(s) approuvé(s)`);
+      closeModal('confirm-modal');
+      loadData();
+    } catch (err) {
+      toastError(err.message);
+    }
+  };
+  openModal('confirm-modal');
+}
+
+// ============================================================
+// DATA LOADING
+// ============================================================
+
+async function loadData() {
+  try {
+    const data = await api('/admin/members');
+    membersData = data.members || [];
+    statsData = data.stats;
+
+    renderStats(statsData);
+    renderPendingApplications(membersData);
+    renderMembers(membersData);
+    populateTrackFilter(membersData);
+  } catch (err) {
+    if (err.message === 'Unauthorized') {
+      showAuth();
+      toastError('Session expirée');
+    } else {
+      toastError(err.message);
+    }
+  }
+}
+
+async function handleExport() {
+  try {
+    const status = elements.filterStatus.value;
+    const url = status ? `/admin/export?status=${status}` : '/admin/export';
+    const response = await api(url);
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = status ? `members_${status}.csv` : 'members.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(downloadUrl);
+  } catch (err) {
+    toastError(err.message);
+  }
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+
+function showAuth() {
+  elements.authSection.classList.remove('hidden');
+  elements.adminContent.classList.add('hidden');
+}
+
+function showAdmin() {
+  elements.authSection.classList.add('hidden');
+  elements.adminContent.classList.remove('hidden');
+}
+
+function showAuthError(message) {
+  elements.authError.textContent = message;
+  elements.authError.classList.remove('hidden');
+}
+
+async function handleAuth() {
+  const token = elements.tokenInput.value.trim();
+  if (!token) {
+    showAuthError('Token requis');
+    return;
+  }
+
+  adminToken = token;
+  elements.authError.classList.add('hidden');
+
+  try {
+    await loadData();
+    localStorage.setItem('join_admin_token', token);
+    showAdmin();
+  } catch (err) {
+    if (err.message === 'Unauthorized') {
+      showAuthError('Token invalide');
+      adminToken = '';
+      localStorage.removeItem('join_admin_token');
+    } else {
+      showAuthError(err.message);
+    }
+  }
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+
+async function loadSettings() {
+  try {
+    const { settings } = await api('/admin/settings');
+    $('setting-membership-open').checked = settings.membership_open !== 'false';
+    $('setting-current-year').value = settings.current_year || '2024-2025';
+  } catch (err) {
+    console.error('Settings error:', err);
+  }
+}
+
+async function saveSettings() {
+  try {
+    await api('/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify({
+        membership_open: $('setting-membership-open').checked ? 'true' : 'false',
+        current_year: $('setting-current-year').value
+      })
+    });
+    toastSuccess('Paramètres enregistrés');
+    elements.saveSettingsBtn.disabled = true;
+  } catch (err) {
+    toastError(err.message);
+  }
+}
+
+function markSettingsDirty() {
+  elements.saveSettingsBtn.disabled = false;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+
+async function init() {
+  elements.authBtn.addEventListener('click', handleAuth);
+  elements.tokenInput.addEventListener('keypress', e => {
+    if (e.key === 'Enter') handleAuth();
+  });
+  elements.exportBtn.addEventListener('click', handleExport);
+  elements.refreshBtn.addEventListener('click', () => {
+    loadData();
+    toastSuccess('Données actualisées');
+  });
+  elements.approveAllBtn.addEventListener('click', approveAll);
+  elements.memberForm.addEventListener('submit', handleMemberSubmit);
+  elements.filterStatus.addEventListener('change', () => renderMembers(membersData));
+  elements.filterTrack.addEventListener('change', () => renderMembers(membersData));
+  elements.saveSettingsBtn.addEventListener('click', saveSettings);
+
+  $('setting-membership-open').addEventListener('change', markSettingsDirty);
+  $('setting-current-year').addEventListener('input', markSettingsDirty);
+
+  // Modal close on backdrop
+  document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', e => {
+      if (e.target === modal) modal.classList.add('hidden');
+    });
+  });
+
+  // Auto-login if token exists
+  if (adminToken) {
+    try {
+      await loadData();
+      await loadSettings();
+      showAdmin();
+    } catch {
+      showAuth();
+      localStorage.removeItem('join_admin_token');
+      adminToken = '';
+    }
+  } else {
+    showAuth();
+  }
+}
+
+init();
+</script>

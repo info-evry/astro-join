@@ -1,0 +1,6 @@
+[submodule "design"]
+	path = design
+	url = ../astro-design
+[submodule "knowledge"]
+	path = knowledge
+	url = ../astro-knowledge

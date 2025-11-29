@@ -1,0 +1,16 @@
+{
+  "name": "Adhésion - Asso Info Evry",
+  "short_name": "Adhésion",
+  "description": "Formulaire d'adhésion pour l'Association Info Evry",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

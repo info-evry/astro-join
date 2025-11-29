@@ -1,0 +1,463 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import associationInfo from '../../knowledge/src/association/info.json';
+---
+
+<BaseLayout title="Adhésion - Asso Info Evry" description="Rejoignez l'Association Info Evry et profitez des avantages membres : accès au foyer, événements, entraide et bien plus !">
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="orb orb-blue"></div>
+      <div class="orb orb-cyan"></div>
+      <div class="orb orb-indigo"></div>
+      <div class="grid-overlay"></div>
+    </div>
+
+    <div class="hero-content container">
+      <p class="hero-badge">
+        <span class="badge-dot"></span>
+        <span>Adhésion 2024-2025</span>
+      </p>
+
+      <h1 class="hero-title large">
+        <span class="title-line">Rejoignez</span>
+        <span class="title-line gradient-text">Info Evry</span>
+      </h1>
+
+      <p class="hero-description">
+        Faites partie de la communauté des étudiants en informatique de l'Université d'Évry Paris-Saclay
+      </p>
+
+      <div class="hero-actions">
+        <a href="#inscription" class="btn btn-primary btn-lg">
+          Demander l'adhésion
+        </a>
+        <a href="#avantages" class="btn btn-secondary btn-lg">
+          Découvrir les avantages
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <!-- Benefits Section -->
+      <section id="avantages" class="content-section">
+        <h2>Pourquoi adhérer ?</h2>
+        <div class="benefits-grid">
+          <div class="benefit-card glass-card">
+            <div class="benefit-icon">&#127969;</div>
+            <h3>Accès au Foyer</h3>
+            <p>Profitez d'un espace convivial avec micro-ondes, machine à café, distributeurs de snacks et boissons pour vos pauses entre les cours.</p>
+          </div>
+          <div class="benefit-card glass-card">
+            <div class="benefit-icon">&#127881;</div>
+            <h3>Événements</h3>
+            <p>Participez à nos événements exclusifs : soirées, sorties, tournois de jeux vidéo, et bien plus encore !</p>
+          </div>
+          <div class="benefit-card glass-card">
+            <div class="benefit-icon">&#129309;</div>
+            <h3>Entraide</h3>
+            <p>Rejoignez une communauté soudée où l'entraide est au cœur de nos valeurs. Partagez vos connaissances et apprenez des autres.</p>
+          </div>
+          <div class="benefit-card glass-card">
+            <div class="benefit-icon">&#128187;</div>
+            <h3>Nuit de l'Info</h3>
+            <p>Participez à la Nuit de l'Info avec tarif réduit et représentez l'université dans cette compétition nationale !</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- How it works -->
+      <section id="comment" class="content-section">
+        <h2>Comment adhérer ?</h2>
+        <div class="steps-list">
+          <div class="step-item">
+            <span class="step-number">1</span>
+            <div class="step-content">
+              <h3>Remplissez le formulaire</h3>
+              <p>Complétez le formulaire ci-dessous avec vos informations.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <span class="step-number">2</span>
+            <div class="step-content">
+              <h3>Validation</h3>
+              <p>Un membre du bureau vérifie votre demande.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <span class="step-number">3</span>
+            <div class="step-content">
+              <h3>Bienvenue !</h3>
+              <p>Vous recevez un email de confirmation et pouvez profiter de tous les avantages.</p>
+            </div>
+          </div>
+        </div>
+        <div class="pricing-note">
+          <strong>Adhésion gratuite</strong> — Aucune cotisation n'est demandée pour rejoindre l'association.
+        </div>
+      </section>
+
+      <!-- Registration Form Section -->
+      <section id="inscription" class="content-section">
+        <h2>Formulaire d'adhésion</h2>
+
+        <form id="membership-form" class="form">
+          <div class="form-card">
+            <h3 class="form-card-title">Informations personnelles</h3>
+
+            <div class="member-grid">
+              <div class="form-group">
+                <label for="first-name">Prénom *</label>
+                <input type="text" id="first-name" name="firstName" required maxlength="128">
+              </div>
+
+              <div class="form-group">
+                <label for="last-name">Nom *</label>
+                <input type="text" id="last-name" name="lastName" required maxlength="128">
+              </div>
+
+              <div class="form-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" name="email" required maxlength="256" placeholder="prenom.nom@ens.uvsq.fr">
+              </div>
+
+              <div class="form-group">
+                <label for="student-id">Numéro étudiant</label>
+                <input type="text" id="student-id" name="studentId" maxlength="32" placeholder="Optionnel">
+              </div>
+
+              <div class="form-group full-width">
+                <label for="enrollment-track">Cursus *</label>
+                <select id="enrollment-track" name="enrollmentTrack" required>
+                  <option value="">-- Sélectionnez votre cursus --</option>
+                  <option value="L1 Informatique">L1 Informatique</option>
+                  <option value="L2 Informatique">L2 Informatique</option>
+                  <option value="L3 Informatique">L3 Informatique</option>
+                  <option value="M1 Informatique">M1 Informatique</option>
+                  <option value="M2 Informatique">M2 Informatique</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-card">
+            <h3 class="form-card-title">Contact (au moins un)</h3>
+            <p class="form-card-subtitle">Pour vous contacter et vous ajouter à nos groupes de discussion.</p>
+
+            <div class="member-grid">
+              <div class="form-group">
+                <label for="phone">Téléphone</label>
+                <input type="tel" id="phone" name="phone" maxlength="20" placeholder="06 12 34 56 78">
+              </div>
+
+              <div class="form-group">
+                <label for="telegram">Pseudo Telegram</label>
+                <input type="text" id="telegram" name="telegram" maxlength="64" placeholder="@votre_pseudo">
+              </div>
+
+              <div class="form-group full-width">
+                <label for="discord">Pseudo Discord</label>
+                <input type="text" id="discord" name="discord" maxlength="64" placeholder="pseudo#1234 ou pseudo">
+              </div>
+            </div>
+          </div>
+
+          <div id="form-errors" class="errors hidden"></div>
+
+          <button type="submit" id="submit-btn" class="btn btn-primary btn-lg">
+            Envoyer ma demande
+          </button>
+        </form>
+      </section>
+
+      <!-- Contact Section -->
+      <section class="content-section">
+        <h2>Des questions ?</h2>
+        <p class="contact-text">
+          Contactez-nous sur <a href={associationInfo.social.discord.url} target="_blank" rel="noopener">Discord</a>,
+          <a href={associationInfo.social.telegram.url} target="_blank" rel="noopener">Telegram</a>
+          ou par email à <a href="mailto:asso@info-evry.fr">asso@info-evry.fr</a>.
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <!-- Success Modal -->
+  <div id="success-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Demande envoyée !</h3>
+      <p id="success-message">Votre demande d'adhésion a bien été enregistrée. Vous recevrez un email de confirmation une fois votre demande validée.</p>
+      <button type="button" class="btn btn-primary" onclick="location.reload()">
+        Fermer
+      </button>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  /* Main Content */
+  .main-content {
+    background: var(--color-bg);
+    position: relative;
+    z-index: 1;
+  }
+
+  .main-content .container {
+    max-width: 800px;
+    padding: var(--space-16) var(--space-4);
+  }
+
+  .content-section {
+    margin-bottom: var(--space-16);
+  }
+
+  .content-section h2 {
+    font-size: var(--text-2xl);
+    margin-bottom: var(--space-6);
+  }
+
+  /* Benefits Grid */
+  .benefits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-4);
+  }
+
+  .benefit-card {
+    padding: var(--space-6);
+    text-align: center;
+  }
+
+  .benefit-icon {
+    font-size: 2.5rem;
+    margin-bottom: var(--space-4);
+  }
+
+  .benefit-card h3 {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin-bottom: var(--space-3);
+    color: var(--color-text);
+  }
+
+  .benefit-card p {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* Steps List */
+  .steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+
+  .step-item {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-start;
+  }
+
+  .step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    background: var(--color-primary);
+    color: white;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: var(--text-lg);
+  }
+
+  .step-content h3 {
+    margin: 0 0 var(--space-1);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .step-content p {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .pricing-note {
+    background: rgba(14, 165, 233, 0.1);
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    text-align: center;
+    color: var(--color-text);
+    font-size: var(--text-sm);
+  }
+
+  .pricing-note strong {
+    color: var(--color-primary);
+  }
+
+  /* Contact */
+  .contact-text {
+    color: var(--color-text-secondary);
+    text-align: center;
+  }
+
+  .contact-text a {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .contact-text a:hover {
+    text-decoration: underline;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .main-content .container {
+      padding: var(--space-10) var(--space-4);
+    }
+
+    .benefits-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+/**
+ * Membership Application Form
+ */
+
+const elements = {
+  form: document.getElementById('membership-form'),
+  errorsDiv: document.getElementById('form-errors'),
+  submitBtn: document.getElementById('submit-btn'),
+  successModal: document.getElementById('success-modal'),
+  successMessage: document.getElementById('success-message')
+};
+
+// API Functions
+async function api(endpoint, options = {}) {
+  const response = await fetch(`/api${endpoint}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// Form Handling
+function collectFormData() {
+  const formData = new FormData(elements.form);
+  return {
+    firstName: formData.get('firstName')?.toString().trim() || '',
+    lastName: formData.get('lastName')?.toString().trim() || '',
+    email: formData.get('email')?.toString().trim() || '',
+    studentId: formData.get('studentId')?.toString().trim() || '',
+    enrollmentTrack: formData.get('enrollmentTrack')?.toString() || '',
+    phone: formData.get('phone')?.toString().trim() || '',
+    telegram: formData.get('telegram')?.toString().trim() || '',
+    discord: formData.get('discord')?.toString().trim() || ''
+  };
+}
+
+function validateForm(data) {
+  const errors = [];
+
+  if (!data.firstName) errors.push('Le prénom est requis');
+  if (!data.lastName) errors.push('Le nom est requis');
+  if (!data.email) errors.push("L'email est requis");
+  else if (!isValidEmail(data.email)) errors.push("L'email est invalide");
+  if (!data.enrollmentTrack) errors.push('Le cursus est requis');
+
+  // At least one contact method required
+  if (!data.phone && !data.telegram && !data.discord) {
+    errors.push('Au moins un moyen de contact est requis (téléphone, Telegram ou Discord)');
+  }
+
+  return errors;
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function showErrors(errors) {
+  elements.errorsDiv.innerHTML = `<ul>${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`;
+  elements.errorsDiv.classList.remove('hidden');
+  elements.errorsDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function hideErrors() {
+  elements.errorsDiv.classList.add('hidden');
+}
+
+function setLoading(loading) {
+  elements.submitBtn.disabled = loading;
+  elements.submitBtn.textContent = loading ? 'Envoi en cours...' : 'Envoyer ma demande';
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+
+  const data = collectFormData();
+  const errors = validateForm(data);
+
+  if (errors.length > 0) {
+    showErrors(errors);
+    return;
+  }
+
+  hideErrors();
+  setLoading(true);
+
+  try {
+    const result = await api('/apply', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+
+    elements.successMessage.textContent = result.message || 'Votre demande d\'adhésion a bien été enregistrée.';
+    elements.successModal.classList.remove('hidden');
+
+  } catch (err) {
+    showErrors([err.message]);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// Event Listeners
+elements.form.addEventListener('submit', handleSubmit);
+
+// Close modal on backdrop click or Escape
+elements.successModal.addEventListener('click', (e) => {
+  if (e.target === elements.successModal) {
+    location.reload();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !elements.successModal.classList.contains('hidden')) {
+    location.reload();
+  }
+});
+</script>
