@@ -7,6 +7,7 @@ echo "=================================="
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Update submodules
@@ -17,10 +18,18 @@ git submodule update --init --recursive
 echo -e "${YELLOW}📥 Installing dependencies...${NC}"
 bun install
 
+# Build
+echo -e "${YELLOW}🔨 Building...${NC}"
+bun run build
+
 # Run tests
 echo -e "${YELLOW}🧪 Running tests...${NC}"
-bun run build
-bun run test
+if bun run test; then
+  echo -e "${GREEN}✅ Tests passed${NC}"
+else
+  echo -e "${RED}❌ Tests failed - aborting deployment${NC}"
+  exit 1
+fi
 
 # Deploy
 echo -e "${YELLOW}🚀 Deploying to Cloudflare...${NC}"
