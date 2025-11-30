@@ -4,8 +4,10 @@
  */
 
 export class Router {
-  constructor() {
+  constructor(basePath = '') {
     this.routes = [];
+    // Normalize base path (remove trailing slash)
+    this.basePath = basePath.replace(/\/$/, '');
   }
 
   add(method, path, handler) {
@@ -29,7 +31,12 @@ export class Router {
   async handle(request, env, ctx) {
     const url = new URL(request.url);
     const method = request.method.toUpperCase();
-    const path = url.pathname;
+    let path = url.pathname;
+
+    // Strip base path if present
+    if (this.basePath && path.startsWith(this.basePath)) {
+      path = path.slice(this.basePath.length) || '/';
+    }
 
     for (const route of this.routes) {
       if (route.method !== method && route.method !== 'ALL') continue;

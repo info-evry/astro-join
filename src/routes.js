@@ -17,7 +17,8 @@ import {
 } from './api/admin.js';
 
 export function createRouter() {
-  const router = new Router();
+  // Pass base path to handle subpath deployments
+  const router = new Router('/adhesion');
 
   // Public API routes
   router.get('/api/config', getConfig);
