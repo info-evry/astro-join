@@ -3,6 +3,7 @@ import cloudflare from '@astrojs/cloudflare';
 
 export default defineConfig({
   output: 'server',
+  base: '/adhesion',
   adapter: cloudflare({
     platformProxy: {
       enabled: true

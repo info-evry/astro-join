@@ -1,6 +1,9 @@
+# Robots.txt for Membership Portal
+# https://asso.info-evry.fr/adhesion
+
 User-agent: *
 Allow: /
 Disallow: /manage
 Disallow: /api/
 
-Sitemap: https://asso.info-evry.fr/join/sitemap.xml
+Sitemap: https://asso.info-evry.fr/adhesion/sitemap.xml
