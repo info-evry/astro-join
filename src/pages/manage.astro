@@ -225,7 +225,7 @@ function toastError(message) { showToast(message, 'error'); }
 let adminToken = localStorage.getItem('join_admin_token') || '';
 
 async function api(endpoint, options = {}) {
-  const response = await fetch(`/api${endpoint}`, {
+  const response = await fetch(`./api${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${adminToken}`,
       'Content-Type': 'application/json',

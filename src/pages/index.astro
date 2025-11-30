@@ -349,7 +349,7 @@ const elements = {
 
 // API Functions
 async function api(endpoint, options = {}) {
-  const response = await fetch(`/api${endpoint}`, {
+  const response = await fetch(`./api${endpoint}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options
   });

@@ -174,13 +174,13 @@ const currentYear = new Date().getFullYear();
             </nav>
           </div>
 
-          <div class="footer-social">
+          <div class="footer-connect">
             <h4 class="footer-heading">Réseaux</h4>
-            <div class="social-links">
+            <div class="connect-grid">
               {socialLinks.map(social => (
                 <a
                   href={social.href}
-                  class="social-link"
+                  class="connect-item"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={social.name}
@@ -536,12 +536,12 @@ const currentYear = new Date().getFullYear();
   text-decoration: none;
 }
 
-.social-links {
+.connect-grid {
   display: flex;
   gap: var(--space-3);
 }
 
-.social-link {
+.connect-item {
   width: 40px;
   height: 40px;
   display: flex;
@@ -555,7 +555,7 @@ const currentYear = new Date().getFullYear();
   text-decoration: none;
 }
 
-.social-link:hover {
+.connect-item:hover {
   background: rgba(14, 165, 233, 0.1);
   border-color: rgba(14, 165, 233, 0.3);
   color: var(--color-primary);
@@ -583,7 +583,7 @@ const currentYear = new Date().getFullYear();
     text-align: center;
   }
 
-  .social-links {
+  .connect-grid {
     justify-content: center;
   }
 
