@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # Static assets from Astro build
 [assets]
-bucket = "./dist"
+directory = "./dist"
 
 # D1 Database binding
 [[d1_databases]]
