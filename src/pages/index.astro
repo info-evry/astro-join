@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import associationInfo from '../../knowledge/src/association/info.json';
+import computed from '../../knowledge/src/computed.json';
 ---
 
 <BaseLayout title="Adhésion - Asso Info Evry" description="Rejoignez l'Association Info Evry et profitez des avantages membres : accès au foyer, événements, entraide et bien plus !">
@@ -16,7 +17,7 @@ import associationInfo from '../../knowledge/src/association/info.json';
     <div class="hero-content container">
       <p class="hero-badge">
         <span class="badge-dot"></span>
-        <span>Adhésion 2024-2025</span>
+        <span>Adhésion {computed.academicYear}</span>
       </p>
 
       <h1 class="hero-title large">
