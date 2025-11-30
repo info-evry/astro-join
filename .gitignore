@@ -17,6 +17,7 @@ npm-debug.log*
 # Wrangler
 .wrangler/
 .dev.vars
+wrangler.toml
 
 # Lock files (use bun.lock)
 package-lock.json

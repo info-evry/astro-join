@@ -6,14 +6,9 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro build && wrangler dev",
-    "deploy": "astro build && wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui",
-    "db:init": "wrangler d1 execute join-db --local --file=./db/schema.sql",
-    "db:seed": "wrangler d1 execute join-db --local --file=./db/seed.sql",
-    "db:migrate": "wrangler d1 execute join-db --file=./db/schema.sql"
+    "test:ui": "vitest --ui"
   },
   "keywords": ["astro", "cloudflare", "workers", "d1", "membership"],
   "author": "Asso Info Evry",
