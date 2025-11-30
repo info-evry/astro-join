@@ -175,10 +175,13 @@ import AdminLayout from '../layouts/AdminLayout.astro';
   </main>
 </AdminLayout>
 
-<script>
+<script define:vars={{ baseUrl: import.meta.env.BASE_URL }}>
 /**
  * Membership Admin Dashboard
  */
+
+// API base URL (from Astro's BASE_URL)
+const API_BASE = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -225,7 +228,7 @@ function toastError(message) { showToast(message, 'error'); }
 let adminToken = localStorage.getItem('join_admin_token') || '';
 
 async function api(endpoint, options = {}) {
-  const response = await fetch(`./api${endpoint}`, {
+  const response = await fetch(`${API_BASE}/api${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${adminToken}`,
       'Content-Type': 'application/json',

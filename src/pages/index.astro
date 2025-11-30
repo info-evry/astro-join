@@ -334,10 +334,13 @@ import computed from '../../knowledge/src/computed.json';
   }
 </style>
 
-<script>
+<script define:vars={{ baseUrl: import.meta.env.BASE_URL }}>
 /**
  * Membership Application Form
  */
+
+// API base URL (from Astro's BASE_URL)
+const API_BASE = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 
 const elements = {
   form: document.getElementById('membership-form'),
@@ -349,7 +352,7 @@ const elements = {
 
 // API Functions
 async function api(endpoint, options = {}) {
-  const response = await fetch(`./api${endpoint}`, {
+  const response = await fetch(`${API_BASE}/api${endpoint}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options
   });
