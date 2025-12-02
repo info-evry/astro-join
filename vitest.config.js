@@ -4,6 +4,7 @@ export default defineWorkersConfig({
   test: {
     globals: true,
     testTimeout: 15000,
+    exclude: ['**/node_modules/**', '**/design/**', '**/knowledge/**'],
     poolOptions: {
       workers: {
         main: './dist/_worker.js/index.js',
