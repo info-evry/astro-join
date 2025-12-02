@@ -21,13 +21,14 @@ interface Props {
 const {
   title,
   description = "Rejoignez l'Association Info Evry",
-  image = "/og.png",
+  image = "og.png",
   showHeader = true,
   showFooter = true,
   noindex = false
 } = Astro.props;
 
-const siteUrl = associationInfo.sites.join?.url || assoUrl;
+// Ensure siteUrl has trailing slash for relative URL resolution
+const siteUrl = (associationInfo.sites.join?.url || associationInfo.sites.asso.url).replace(/\/?$/, '/');
 const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
 const ogImageUrl = new URL(image, siteUrl).href;
 ---
