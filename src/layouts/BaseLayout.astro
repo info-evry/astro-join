@@ -21,7 +21,7 @@ interface Props {
 const {
   title,
   description = "Rejoignez l'Association Info Evry",
-  image = "og.png",
+  image = "og.jpg",
   showHeader = true,
   showFooter = true,
   noindex = false
@@ -76,12 +76,7 @@ const ogImageUrl = new URL(image, siteUrl).href;
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
 
-  <!-- Performance: Preconnect to external origins -->
-  <link rel="preconnect" href="https://rsms.me" crossorigin>
-  <link rel="dns-prefetch" href="https://rsms.me">
-
-  <!-- Inter Font -->
-  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+  <!-- Cupertino font is loaded via CSS @font-face from /fonts/Cupertino-Pro.woff2 -->
 </head>
 <body>
   {showHeader && <Header />}
