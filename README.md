@@ -1,91 +1,138 @@
-# Join - Asso Info Evry Membership System
+# Join - Asso Info Evry Membership Portal
 
-Système d'adhésion pour l'Association Info Evry. Cette application permet aux étudiants de soumettre des demandes d'adhésion et aux administrateurs de gérer les membres.
+Membership application system for Association Info Evry. Students can apply for membership and administrators can manage applications.
 
-## Tech Stack
-
-- **Framework**: Astro 5.x
-- **Runtime**: Cloudflare Workers
-- **Database**: Cloudflare D1 (SQLite)
-- **Design**: Shared design system (git submodule)
-
-## Structure
-
-```
-join/
-├── src/
-│   ├── api/          # API handlers
-│   ├── layouts/      # Astro layouts
-│   ├── lib/          # Utilities (router)
-│   ├── pages/        # Astro pages
-│   └── shared/       # Response helpers
-├── db/               # Database schema
-├── design/           # Design system (submodule)
-├── knowledge/        # Association data (submodule)
-├── public/           # Static assets
-└── test/             # API tests
-```
+**Live site**: https://asso.info-evry.fr/adhesion
 
 ## Features
 
 ### Public
-- Landing page with membership benefits
+- Membership benefits overview
 - Application form with validation
-- Contact information collection
+- Contact information collection (email, phone, Discord, Telegram)
+- Enrollment track selection
+- Mobile-responsive glassmorphism design
+- SF Symbols icons
 
-### Admin (`/manage`)
-- Authentication with admin token
-- View pending applications
+### Admin Dashboard (`/manage`)
+- Secure authentication with admin token
+- View and filter applications by status
 - Approve/reject applications individually or in batch
 - Edit member information
+- Assign bureau roles (president, treasurer, secretary, etc.)
 - Export members to CSV
-- Filter by status and enrollment track
+- Real-time statistics
 
-## Development
+## Tech Stack
+
+- **Framework**: Astro 5.x (SSR mode)
+- **Runtime**: Cloudflare Workers
+- **Database**: Cloudflare D1 (SQLite)
+- **Design**: Shared design system via git submodule
+- **Content**: Shared knowledge base via git submodule
+- **Testing**: Vitest with Cloudflare Workers pool
+
+## Project Structure
+
+```
+astro-join/
+├── src/
+│   ├── pages/
+│   │   ├── index.astro       # Public membership page
+│   │   ├── manage.astro      # Admin dashboard
+│   │   └── api/[...slug].ts  # API route handler
+│   ├── api/                  # API handlers
+│   │   ├── admin.js          # Admin CRUD operations
+│   │   ├── apply.js          # Application submission
+│   │   └── members.js        # Public member stats
+│   ├── lib/
+│   │   └── router.js         # API router
+│   ├── shared/
+│   │   └── response.js       # JSON response helpers
+│   ├── layouts/
+│   │   ├── BaseLayout.astro  # Public layout
+│   │   └── AdminLayout.astro # Admin layout
+│   └── components/
+│       ├── Header.astro      # Site header
+│       └── Footer.astro      # Site footer
+├── db/
+│   ├── schema.sql            # Database schema
+│   └── migrate-*.sql         # Migrations
+├── design/                   # Shared design system (submodule)
+├── knowledge/                # Shared content (submodule)
+├── test/                     # API tests
+├── public/                   # Static assets
+└── docs/
+    └── setup.md              # Setup guide
+```
+
+## Quick Start
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) or Node.js
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)
+- [Bun](https://bun.sh/) (v1.0+)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (v3+)
+- Cloudflare account with Workers and D1 access
 
-### Setup
+### Installation
 
-1. Clone with submodules:
 ```bash
-git clone --recursive <repo-url>
-```
+# Clone with submodules
+git clone --recursive https://github.com/info-evry/astro-join.git
+cd astro-join
 
-2. Install dependencies:
-```bash
+# Install dependencies
 bun install
 ```
 
-3. Initialize the local database:
-```bash
-bun run db:init
-```
+### Local Development
 
-4. Start development server:
 ```bash
 bun run dev
 ```
 
+Visit `http://localhost:4321`
+
+### Database Setup
+
+```bash
+# Initialize local D1 database
+bun run db:init
+```
+
+See [docs/setup.md](./docs/setup.md) for production Cloudflare D1 configuration.
+
 ### Testing
 
 ```bash
-# Build first (required for workers tests)
+# Build first (required for Workers tests)
 bun run build
 
 # Run tests
 bun run test
 
-# Run tests in watch mode
+# Watch mode
 bun run test:watch
 ```
 
+## Environment Configuration
+
+### Cloudflare Bindings
+
+| Binding | Type | Description |
+|---------|------|-------------|
+| `DB` | D1 Database | SQLite database for members |
+
 ### Environment Variables
 
-Set the admin token as a secret:
+| Variable | Description |
+|----------|-------------|
+| `ADMIN_TOKEN` | Secret token for admin authentication |
+| `ADMIN_EMAIL` | Email for admin notifications |
+| `REPLY_TO_EMAIL` | Reply-to email for notifications |
+
+### Setting Secrets
+
 ```bash
 wrangler secret put ADMIN_TOKEN
 ```
@@ -96,26 +143,54 @@ wrangler secret put ADMIN_TOKEN
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/config` | Get membership configuration |
-| GET | `/api/stats` | Get public membership stats |
-| POST | `/api/apply` | Submit membership application |
+| `GET` | `/api/config` | Membership configuration |
+| `GET` | `/api/stats` | Public membership statistics |
+| `POST` | `/api/apply` | Submit membership application |
 
-### Admin (requires Authorization header)
+### Admin (Authorization header required)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/admin/members` | List all members with stats |
-| GET | `/api/admin/stats` | Detailed admin stats |
-| GET | `/api/admin/export` | Export members to CSV |
-| GET | `/api/admin/settings` | Get settings |
-| PUT | `/api/admin/members/:id` | Update member |
-| PUT | `/api/admin/settings` | Update settings |
-| POST | `/api/admin/members/batch` | Batch update members |
-| DELETE | `/api/admin/members/:id` | Delete member |
+| `GET` | `/api/admin/members` | List all members with statistics |
+| `GET` | `/api/admin/stats` | Detailed admin statistics |
+| `GET` | `/api/admin/settings` | Get settings |
+| `PUT` | `/api/admin/settings` | Update settings |
+| `GET` | `/api/admin/export` | Export members to CSV |
+| `PUT` | `/api/admin/members/:id` | Update member |
+| `DELETE` | `/api/admin/members/:id` | Delete member |
+| `POST` | `/api/admin/members/batch` | Batch update members |
 
-## Deployment
+## Member Statuses
 
-See [docs/deploy.md](docs/deploy.md) for deployment instructions.
+| Status | Description |
+|--------|-------------|
+| `pending` | Application submitted, awaiting review |
+| `active` | Approved active member |
+| `rejected` | Application rejected |
+| `expired` | Membership expired |
+| `honor` | Honorary member |
+| `president` | Bureau - President |
+| `vicepresident` | Bureau - Vice President |
+| `treasurer` | Bureau - Treasurer |
+| `secretary` | Bureau - Secretary |
+
+## Database Schema
+
+### Members
+- `id`, `first_name`, `last_name`, `email`
+- `enrollment_track` (L3 Info, M1 Info, etc.)
+- `enrollment_number` (student ID)
+- `status` (pending, active, rejected, etc.)
+- `discord`, `telegram`, `phone` (contact info)
+- `created_at`, `approved_at`
+
+## Related Repositories
+
+- [astro-design](https://github.com/info-evry/astro-design) - Shared design system
+- [astro-knowledge](https://github.com/info-evry/astro-knowledge) - Shared content
+- [astro-asso](https://github.com/info-evry/astro-asso) - Association website
+- [astro-ndi](https://github.com/info-evry/astro-ndi) - NDI registration platform
+- [astro-maestro](https://github.com/info-evry/astro-maestro) - Deployment orchestrator (private)
 
 ## License
 
