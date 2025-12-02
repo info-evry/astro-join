@@ -12,7 +12,9 @@ export class Router {
 
   add(method, path, handler) {
     // Convert path pattern to regex
+    // Escape backslashes first, then forward slashes, then convert :params
     const pattern = path
+      .replace(/\\/g, '\\\\')
       .replace(/\//g, '\\/')
       .replace(/:(\w+)/g, '(?<$1>[^/]+)');
     this.routes.push({
