@@ -563,8 +563,9 @@ export const importCSV = adminOnly(async (request, env) => {
       else if (h === 'nom' || h === 'lastname') headerMap.lastName = i;
       else if (h === 'email' || h === 'mail') headerMap.email = i;
       else if (h === 'téléphone' || h === 'telephone' || h === 'phone' || h === 'tel') headerMap.phone = i;
-      else if (h === 'numéro' || h === 'numero' || h === 'number' || h === 'enrollment_number') headerMap.enrollmentNumber = i;
-      else if (h === "filière d'inscription" || h === 'filiere' || h === 'track' || h === 'enrollment_track') headerMap.enrollmentTrack = i;
+      else if (h === 'numéro étudiant' || h === 'numero etudiant' || h === 'n° étudiant' || h === 'student_id' || h === 'numéro' || h === 'numero') headerMap.studentId = i;
+      else if (h === 'enrollment_number') headerMap.enrollmentNumber = i;
+      else if (h === "filière d'inscription" || h === 'filiere' || h === 'track' || h === 'enrollment_track' || h === 'cursus') headerMap.enrollmentTrack = i;
       else if (h === 'statut' || h === 'status') headerMap.status = i;
     }
 
@@ -593,6 +594,7 @@ export const importCSV = adminOnly(async (request, env) => {
       const lastName = values[headerMap.lastName]?.trim();
       const email = values[headerMap.email]?.toLowerCase().trim();
       const phone = headerMap.phone !== undefined ? values[headerMap.phone]?.trim() : null;
+      const studentId = headerMap.studentId !== undefined ? values[headerMap.studentId]?.trim() : null;
       const enrollmentNumber = headerMap.enrollmentNumber !== undefined ? values[headerMap.enrollmentNumber]?.trim() : null;
       const enrollmentTrack = headerMap.enrollmentTrack !== undefined ? values[headerMap.enrollmentTrack]?.trim() : 'Autre';
       const statusLabel = headerMap.status !== undefined ? values[headerMap.status]?.trim() : null;
@@ -648,6 +650,7 @@ export const importCSV = adminOnly(async (request, env) => {
               first_name = ?,
               last_name = ?,
               phone = COALESCE(?, phone),
+              student_id = COALESCE(?, student_id),
               enrollment_number = COALESCE(?, enrollment_number),
               enrollment_track = COALESCE(?, enrollment_track),
               status = ?,
@@ -657,6 +660,7 @@ export const importCSV = adminOnly(async (request, env) => {
             firstName,
             lastName,
             phone,
+            studentId,
             enrollmentNumber,
             enrollmentTrack,
             status,
@@ -672,14 +676,15 @@ export const importCSV = adminOnly(async (request, env) => {
 
           await env.DB.prepare(`
             INSERT INTO members (
-              first_name, last_name, email, phone, enrollment_number,
+              first_name, last_name, email, phone, student_id, enrollment_number,
               enrollment_track, status, approved_at, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).bind(
             firstName,
             lastName,
             email,
             phone,
+            studentId,
             enrollmentNumber,
             enrollmentTrack,
             status,

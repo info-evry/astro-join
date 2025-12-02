@@ -187,14 +187,19 @@ import AdminLayout from '../layouts/AdminLayout.astro';
           <div class="form-row">
             <div class="form-group">
               <label for="member-form-track">Cursus</label>
-              <select id="member-form-track">
-                <option value="L1 Informatique">L1 Informatique</option>
-                <option value="L2 Informatique">L2 Informatique</option>
-                <option value="L3 Informatique">L3 Informatique</option>
-                <option value="M1 Informatique">M1 Informatique</option>
-                <option value="M2 Informatique">M2 Informatique</option>
-                <option value="Autre">Autre</option>
-              </select>
+              <input type="text" id="member-form-track" list="admin-cursus-list" placeholder="Ex: L3 Informatique">
+              <datalist id="admin-cursus-list">
+                <option value="L1 Informatique">
+                <option value="L2 Informatique">
+                <option value="L3 Informatique">
+                <option value="M1 Informatique">
+                <option value="M2 Informatique">
+                <option value="Doctorat Informatique">
+                <option value="L1 Mathématiques">
+                <option value="L2 Mathématiques">
+                <option value="L3 Mathématiques">
+                <option value="Autre">
+              </datalist>
             </div>
             <div class="form-group">
               <label for="member-form-status">Statut</label>
@@ -268,6 +273,37 @@ function debounce(fn, delay) {
     timeoutId = setTimeout(() => fn(...args), delay);
   };
 }
+
+function sortMembers(members) {
+  return [...members].sort((a, b) => {
+    let valA = a[sortField];
+    let valB = b[sortField];
+
+    // Handle null/undefined
+    if (valA == null) valA = '';
+    if (valB == null) valB = '';
+
+    // String comparison
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+
+    let comparison = 0;
+    if (valA < valB) comparison = -1;
+    else if (valA > valB) comparison = 1;
+
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+}
+
+window.toggleSort = function(field) {
+  if (sortField === field) {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortField = field;
+    sortDirection = 'asc';
+  }
+  renderMembers(membersData);
+};
 
 // ============================================================
 // TOAST NOTIFICATIONS
@@ -370,6 +406,10 @@ const elements = {
 // Selection state
 let selectedMembers = new Set();
 
+// Sort state
+let sortField = 'created_at';
+let sortDirection = 'desc';
+
 // Status labels for display
 const STATUS_LABELS = {
   pending: 'En attente',
@@ -447,7 +487,7 @@ function renderBureau(members) {
           <div class="bureau-role">${STATUS_LABELS[m.status] || m.status}</div>
           <div class="bureau-name">${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</div>
           <div class="bureau-email"><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></div>
-          <button class="btn btn-sm btn-secondary" onclick="openEditModal(${m.id})">Modifier</button>
+          <button class="btn btn-sm btn-secondary" onclick="editMember(${m.id})">Modifier</button>
         </div>
       `).join('')}
     </div>
@@ -537,7 +577,15 @@ function renderMembers(members) {
     return;
   }
 
+  // Apply sorting
+  filtered = sortMembers(filtered);
+
   const allSelected = filtered.length > 0 && filtered.every(m => selectedMembers.has(m.id));
+
+  const sortIcon = (field) => {
+    if (sortField !== field) return '';
+    return sortDirection === 'asc' ? ' ▲' : ' ▼';
+  };
 
   elements.membersContainer.innerHTML = `
     <table class="data-table members-table-wide">
@@ -546,13 +594,13 @@ function renderMembers(members) {
           <th class="checkbox-col">
             <input type="checkbox" id="select-all" ${allSelected ? 'checked' : ''} onchange="toggleSelectAll(this.checked)">
           </th>
-          <th>Nom</th>
-          <th>Email</th>
-          <th>N° Étudiant</th>
-          <th>Cursus</th>
+          <th class="sortable" onclick="toggleSort('last_name')">Nom${sortIcon('last_name')}</th>
+          <th class="sortable" onclick="toggleSort('email')">Email${sortIcon('email')}</th>
+          <th class="sortable" onclick="toggleSort('student_id')">N° Étudiant${sortIcon('student_id')}</th>
+          <th class="sortable" onclick="toggleSort('enrollment_track')">Cursus${sortIcon('enrollment_track')}</th>
           <th>Contact</th>
-          <th>Statut</th>
-          <th>Inscription</th>
+          <th class="sortable" onclick="toggleSort('status')">Statut${sortIcon('status')}</th>
+          <th class="sortable" onclick="toggleSort('created_at')">Inscription${sortIcon('created_at')}</th>
           <th class="actions-col">Actions</th>
         </tr>
       </thead>
@@ -1091,8 +1139,12 @@ async function handleAuth() {
 async function loadSettings() {
   try {
     const { settings } = await api('/admin/settings');
-    $('setting-membership-open').checked = settings.membership_open !== 'false';
+    // Handle both boolean and string values
+    const isOpen = settings.membership_open === true || settings.membership_open === 'true';
+    $('setting-membership-open').checked = isOpen;
     $('setting-current-year').value = settings.current_year || '2024-2025';
+    // Reset dirty state after loading
+    elements.saveSettingsBtn.disabled = true;
   } catch (err) {
     console.error('Settings error:', err);
   }
@@ -1271,6 +1323,17 @@ tr.selected td {
 
 small.text-muted {
   font-size: var(--text-xs);
+}
+
+/* Sortable headers */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--transition-fast);
+}
+
+.sortable:hover {
+  background-color: rgba(0, 27, 165, 0.1);
 }
 
 @media (max-width: 768px) {

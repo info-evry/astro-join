@@ -1046,5 +1046,70 @@ Third,Honorary,honorary3@test.com,Président d'honneur`;
       ).first();
       expect(honoraryPresidents.count).toBe(3);
     });
+
+    it('should import student ID from "Numéro" column', async () => {
+      const csv = `Prénom,Nom,Email,Numéro,Cursus
+Alice,Student,alice@test.com,12345678,L3 Informatique
+Bob,Student,bob@test.com,87654321,M1 Informatique`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.stats.imported).toBe(2);
+
+      // Verify student IDs were imported
+      const alice = await env.DB.prepare('SELECT student_id FROM members WHERE email = ?').bind('alice@test.com').first();
+      const bob = await env.DB.prepare('SELECT student_id FROM members WHERE email = ?').bind('bob@test.com').first();
+
+      expect(alice.student_id).toBe('12345678');
+      expect(bob.student_id).toBe('87654321');
+    });
+
+    it('should import student ID from "Numéro étudiant" column', async () => {
+      const csv = `Prénom,Nom,Email,Numéro étudiant,Cursus
+Charlie,Student,charlie@test.com,11111111,L3 Informatique`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+
+      const charlie = await env.DB.prepare('SELECT student_id FROM members WHERE email = ?').bind('charlie@test.com').first();
+      expect(charlie.student_id).toBe('11111111');
+    });
+
+    it('should import free-text cursus values', async () => {
+      const csv = `Prénom,Nom,Email,Cursus
+Alice,Student,alice@test.com,L3 Informatique parcours IA
+Bob,Student,bob@test.com,Master 2 Data Science
+Charlie,Student,charlie@test.com,Doctorant en informatique`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.stats.imported).toBe(3);
+
+      // Verify free-text cursus values were imported
+      const alice = await env.DB.prepare('SELECT enrollment_track FROM members WHERE email = ?').bind('alice@test.com').first();
+      const bob = await env.DB.prepare('SELECT enrollment_track FROM members WHERE email = ?').bind('bob@test.com').first();
+      const charlie = await env.DB.prepare('SELECT enrollment_track FROM members WHERE email = ?').bind('charlie@test.com').first();
+
+      expect(alice.enrollment_track).toBe('L3 Informatique parcours IA');
+      expect(bob.enrollment_track).toBe('Master 2 Data Science');
+      expect(charlie.enrollment_track).toBe('Doctorant en informatique');
+    });
   });
 });

@@ -130,15 +130,19 @@ import computed from '../../knowledge/src/computed.json';
 
               <div class="form-group full-width">
                 <label for="enrollment-track">Cursus *</label>
-                <select id="enrollment-track" name="enrollmentTrack" required>
-                  <option value="">-- Sélectionnez votre cursus --</option>
-                  <option value="L1 Informatique">L1 Informatique</option>
-                  <option value="L2 Informatique">L2 Informatique</option>
-                  <option value="L3 Informatique">L3 Informatique</option>
-                  <option value="M1 Informatique">M1 Informatique</option>
-                  <option value="M2 Informatique">M2 Informatique</option>
-                  <option value="Autre">Autre</option>
-                </select>
+                <input type="text" id="enrollment-track" name="enrollmentTrack" list="cursus-list" required placeholder="Ex: L3 Informatique">
+                <datalist id="cursus-list">
+                  <option value="L1 Informatique">
+                  <option value="L2 Informatique">
+                  <option value="L3 Informatique">
+                  <option value="M1 Informatique">
+                  <option value="M2 Informatique">
+                  <option value="Doctorat Informatique">
+                  <option value="L1 Mathématiques">
+                  <option value="L2 Mathématiques">
+                  <option value="L3 Mathématiques">
+                  <option value="Autre">
+                </datalist>
               </div>
             </div>
           </div>
