@@ -1,0 +1,20 @@
+---
+import Header from '../../design/src/components/Header.astro';
+import associationInfo from '../../knowledge/src/association/info.json';
+
+const assoUrl = associationInfo.sites.asso.url;
+
+const navLinks = [
+  { href: `${assoUrl}/#a-propos`, label: 'À propos' },
+  { href: `${assoUrl}/#ressources`, label: 'Ressources' },
+  { href: `${assoUrl}/#ndi`, label: 'Nuit de l\'Info' },
+];
+---
+
+<Header
+  homeUrl={assoUrl}
+  navLinks={navLinks}
+  ctaHref={`${assoUrl}/#adhesion`}
+  ctaLabel="Adhérer"
+  mobileCta="Adhérer à l'association"
+/>

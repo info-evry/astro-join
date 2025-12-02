@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Badge from '../../design/src/components/Badge.astro';
 import associationInfo from '../../knowledge/src/association/info.json';
 import computed from '../../knowledge/src/computed.json';
 ---
@@ -15,10 +16,7 @@ import computed from '../../knowledge/src/computed.json';
     </div>
 
     <div class="hero-content container">
-      <p class="hero-badge">
-        <span class="badge-dot"></span>
-        <span>Adhésion {computed.academicYear}</span>
-      </p>
+      <Badge text={`Adhésion ${computed.academicYear}`} variant="hero" showDot animated />
 
       <h1 class="hero-title large">
         <span class="title-line">Rejoignez</span>
@@ -294,8 +292,8 @@ import computed from '../../knowledge/src/computed.json';
   }
 
   .pricing-note {
-    background: rgba(14, 165, 233, 0.1);
-    border: 1px solid rgba(14, 165, 233, 0.2);
+    background: rgba(0, 27, 165, 0.1);
+    border: 1px solid rgba(0, 27, 165, 0.2);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
     text-align: center;

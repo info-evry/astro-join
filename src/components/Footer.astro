@@ -1,0 +1,23 @@
+---
+import Footer from '../../design/src/components/Footer.astro';
+import { buildSocialLinks } from '../../design/src/icons/social';
+import associationInfo from '../../knowledge/src/association/info.json';
+
+const assoUrl = associationInfo.sites.asso.url;
+
+const socialLinks = buildSocialLinks(associationInfo.social);
+
+const footerLinks = [
+  { label: 'Drive partagé', href: associationInfo.resources.drive.url },
+  { label: 'eCampus', href: associationInfo.resources.ecampus.url },
+  { label: 'Contact', href: `mailto:${associationInfo.contact.email}` }
+];
+---
+
+<Footer
+  homeUrl={assoUrl}
+  tagline={associationInfo.description}
+  footerLinks={footerLinks}
+  socialLinks={socialLinks}
+  organizationName={associationInfo.fullName}
+/>
