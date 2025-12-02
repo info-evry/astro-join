@@ -712,7 +712,7 @@ describe('Admin API', () => {
 
     it('should handle object settings (JSON)', async () => {
       const tracks = ['L1', 'L2', 'L3', 'M1', 'M2'];
-      
+
       const response = await SELF.fetch('http://localhost/api/admin/settings', {
         method: 'PUT',
         headers: adminHeaders,
@@ -729,6 +729,267 @@ describe('Admin API', () => {
 
       const data = await getResponse.json();
       expect(data.settings.enrollment_tracks).toEqual(tracks);
+    });
+  });
+
+  describe('Bureau Status Management', () => {
+    it('should allow setting bureau status', async () => {
+      // Create member
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('Bureau', 'Member', 'bureau@test.com', 'L3 Informatique', 'active', '@bureau').run();
+
+      const member = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('bureau@test.com').first();
+
+      const response = await SELF.fetch(`http://localhost/api/admin/members/${member.id}`, {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({ status: 'president' })
+      });
+
+      expect(response.status).toBe(200);
+
+      const updated = await env.DB.prepare('SELECT status FROM members WHERE id = ?').bind(member.id).first();
+      expect(updated.status).toBe('president');
+    });
+
+    it('should reject duplicate bureau position', async () => {
+      // Create president
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('Current', 'President', 'president@test.com', 'L3 Informatique', 'president', '@president').run();
+
+      // Create another member
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('Other', 'Member', 'other@test.com', 'L3 Informatique', 'active', '@other').run();
+
+      const other = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('other@test.com').first();
+
+      const response = await SELF.fetch(`http://localhost/api/admin/members/${other.id}`, {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({ status: 'president' })
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain('Président');
+    });
+
+    it('should allow changing own bureau position', async () => {
+      // Create president
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('Current', 'President', 'president@test.com', 'L3 Informatique', 'president', '@president').run();
+
+      const member = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('president@test.com').first();
+
+      // Change to vice_president (should work since president position is now free)
+      const response = await SELF.fetch(`http://localhost/api/admin/members/${member.id}`, {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({ status: 'vice_president' })
+      });
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should reject invalid status', async () => {
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('Test', 'User', 'test@test.com', 'L3 Informatique', 'active', '@test').run();
+
+      const member = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('test@test.com').first();
+
+      const response = await SELF.fetch(`http://localhost/api/admin/members/${member.id}`, {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({ status: 'invalid_status' })
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain('Invalid status');
+    });
+  });
+
+  describe('POST /api/admin/import', () => {
+    it('should require authorization', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csv: 'Prénom,Nom,Email\nJohn,Doe,john@test.com' })
+      });
+      expect(response.status).toBe(401);
+    });
+
+    it('should import members from CSV', async () => {
+      const csv = `Prénom,Nom,Email,Téléphone,Filière d'inscription,Statut
+John,Doe,john@test.com,0612345678,L3 Informatique,Membre actif
+Jane,Smith,jane@test.com,0687654321,M1 Informatique,Membre actif`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.stats.imported).toBe(2);
+      expect(data.stats.skipped).toBe(0);
+
+      // Verify members were created
+      const members = await env.DB.prepare('SELECT * FROM members ORDER BY email').all();
+      expect(members.results).toHaveLength(2);
+      expect(members.results[0].email).toBe('jane@test.com');
+      expect(members.results[1].email).toBe('john@test.com');
+    });
+
+    it('should update existing members on import', async () => {
+      // Create existing member
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('Old', 'Name', 'john@test.com', 'L1 Informatique', 'pending', '@old').run();
+
+      const csv = `Prénom,Nom,Email,Filière d'inscription,Statut
+John,Doe,john@test.com,L3 Informatique,Membre actif`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.stats.imported).toBe(0);
+      expect(data.stats.updated).toBe(1);
+
+      // Verify member was updated
+      const member = await env.DB.prepare('SELECT * FROM members WHERE email = ?').bind('john@test.com').first();
+      expect(member.first_name).toBe('John');
+      expect(member.last_name).toBe('Doe');
+      expect(member.status).toBe('active');
+    });
+
+    it('should reject duplicate bureau positions in import', async () => {
+      // Create existing president
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('Current', 'President', 'president@test.com', 'L3 Informatique', 'president', '@president').run();
+
+      const csv = `Prénom,Nom,Email,Statut
+New,President,new@test.com,Président`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.stats.skipped).toBe(1);
+      expect(data.errors).toBeDefined();
+      expect(data.errors[0]).toContain('Président');
+    });
+
+    it('should require CSV data', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({})
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain('required');
+    });
+
+    it('should require header row and data', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv: 'Prénom,Nom,Email' })
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain('header');
+    });
+
+    it('should validate required columns', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv: 'Name,Status\nJohn,Active' })
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain('Prénom');
+    });
+
+    it('should skip rows with invalid email', async () => {
+      const csv = `Prénom,Nom,Email
+John,Doe,invalid-email
+Jane,Smith,jane@test.com`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.stats.imported).toBe(1);
+      expect(data.stats.skipped).toBe(1);
+    });
+
+    it('should handle tab-separated values', async () => {
+      const csv = `Prénom\tNom\tEmail
+John\tDoe\tjohn@test.com`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.stats.imported).toBe(1);
+    });
+
+    it('should map French status labels correctly', async () => {
+      const csv = `Prénom,Nom,Email,Statut
+Alice,Admin,alice@test.com,Secrétaire
+Bob,Boss,bob@test.com,Trésorier`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+
+      const alice = await env.DB.prepare('SELECT status FROM members WHERE email = ?').bind('alice@test.com').first();
+      const bob = await env.DB.prepare('SELECT status FROM members WHERE email = ?').bind('bob@test.com').first();
+
+      expect(alice.status).toBe('secretary');
+      expect(bob.status).toBe('treasurer');
     });
   });
 });
