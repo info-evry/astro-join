@@ -46,6 +46,16 @@ import AdminLayout from '../layouts/AdminLayout.astro';
         </div>
       </div>
 
+      <!-- Bureau Section -->
+      <div class="disclosure-group open" data-disclosure="bureau">
+        <div class="disclosure-header" onclick="toggleDisclosure('bureau')">
+          <h2><span class="disclosure-chevron">&#9654;</span> Bureau</h2>
+        </div>
+        <div class="disclosure-body">
+          <div id="bureau-container"></div>
+        </div>
+      </div>
+
       <!-- Pending Applications -->
       <div class="disclosure-group open" data-disclosure="pending">
         <div class="disclosure-header" onclick="toggleDisclosure('pending')">
@@ -68,7 +78,9 @@ import AdminLayout from '../layouts/AdminLayout.astro';
           <div class="quick-actions" style="margin-bottom: var(--space-4);">
             <select id="filter-status" class="form-group" style="margin: 0; width: auto;">
               <option value="">Tous les statuts</option>
-              <option value="active">Actifs</option>
+              <option value="active">Membres actifs</option>
+              <option value="honor">Membres d'honneur</option>
+              <option value="bureau">Bureau</option>
               <option value="pending">En attente</option>
               <option value="rejected">Refusés</option>
               <option value="expired">Expirés</option>
@@ -78,6 +90,33 @@ import AdminLayout from '../layouts/AdminLayout.astro';
             </select>
           </div>
           <div id="members-container"></div>
+        </div>
+      </div>
+
+      <!-- Import Section -->
+      <div class="disclosure-group" data-disclosure="import">
+        <div class="disclosure-header" onclick="toggleDisclosure('import')">
+          <h2><span class="disclosure-chevron">&#9654;</span> Importer des membres</h2>
+        </div>
+        <div class="disclosure-body">
+          <div class="settings-card">
+            <h3>Import CSV</h3>
+            <p style="margin-bottom: var(--space-3); color: var(--color-text-muted);">
+              Format attendu: Prénom, Nom, Email, Téléphone, Numéro, Filière d'inscription, Statut
+            </p>
+            <div class="form-group">
+              <label for="import-file">Fichier CSV</label>
+              <input type="file" id="import-file" accept=".csv,.txt">
+            </div>
+            <div id="import-preview" class="hidden" style="margin: var(--space-4) 0;">
+              <h4>Aperçu</h4>
+              <div id="import-preview-content"></div>
+            </div>
+            <div class="quick-actions">
+              <button type="button" id="import-btn" class="btn btn-primary" disabled>Importer</button>
+            </div>
+            <div id="import-result" class="hidden" style="margin-top: var(--space-4);"></div>
+          </div>
         </div>
       </div>
 
@@ -143,7 +182,13 @@ import AdminLayout from '../layouts/AdminLayout.astro';
               <label for="member-form-status">Statut</label>
               <select id="member-form-status">
                 <option value="pending">En attente</option>
-                <option value="active">Actif</option>
+                <option value="active">Membre actif</option>
+                <option value="honor">Membre d'honneur</option>
+                <option value="president">Président</option>
+                <option value="vice_president">Vice-président</option>
+                <option value="secretary">Secrétaire</option>
+                <option value="treasurer">Trésorier</option>
+                <option value="honorary_president">Président d'honneur</option>
                 <option value="rejected">Refusé</option>
                 <option value="expired">Expiré</option>
               </select>
@@ -271,6 +316,7 @@ const elements = {
   authBtn: $('auth-btn'),
   authError: $('auth-error'),
   statsGrid: $('stats-grid'),
+  bureauContainer: $('bureau-container'),
   pendingContainer: $('pending-container'),
   pendingBadge: $('pending-badge'),
   membersContainer: $('members-container'),
@@ -284,8 +330,29 @@ const elements = {
   memberForm: $('member-form'),
   confirmModal: $('confirm-modal'),
   confirmBtn: $('confirm-btn'),
-  saveSettingsBtn: $('save-settings-btn')
+  saveSettingsBtn: $('save-settings-btn'),
+  importFile: $('import-file'),
+  importBtn: $('import-btn'),
+  importPreview: $('import-preview'),
+  importPreviewContent: $('import-preview-content'),
+  importResult: $('import-result')
 };
+
+// Status labels for display
+const STATUS_LABELS = {
+  pending: 'En attente',
+  active: 'Membre actif',
+  honor: "Membre d'honneur",
+  secretary: 'Secrétaire',
+  treasurer: 'Trésorier',
+  president: 'Président',
+  honorary_president: "Président d'honneur",
+  vice_president: 'Vice-président',
+  rejected: 'Refusé',
+  expired: 'Expiré'
+};
+
+const BUREAU_STATUSES = ['secretary', 'treasurer', 'president', 'honorary_president', 'vice_president'];
 
 // ============================================================
 // MODAL & DISCLOSURE
@@ -325,6 +392,32 @@ function renderStats(stats) {
     <div class="stat-card">
       <div class="stat-value">${stats.expired}</div>
       <div class="stat-label">Expirés</div>
+    </div>
+  `;
+}
+
+function renderBureau(members) {
+  const bureau = members.filter(m => BUREAU_STATUSES.includes(m.status));
+
+  if (bureau.length === 0) {
+    elements.bureauContainer.innerHTML = '<p class="text-muted">Aucun membre du bureau défini</p>';
+    return;
+  }
+
+  // Sort by role importance
+  const roleOrder = ['president', 'vice_president', 'secretary', 'treasurer', 'honorary_president'];
+  bureau.sort((a, b) => roleOrder.indexOf(a.status) - roleOrder.indexOf(b.status));
+
+  elements.bureauContainer.innerHTML = `
+    <div class="bureau-grid">
+      ${bureau.map(m => `
+        <div class="bureau-card">
+          <div class="bureau-role">${STATUS_LABELS[m.status] || m.status}</div>
+          <div class="bureau-name">${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</div>
+          <div class="bureau-email"><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></div>
+          <button class="btn btn-sm btn-secondary" onclick="openEditModal(${m.id})">Modifier</button>
+        </div>
+      `).join('')}
     </div>
   `;
 }
@@ -375,7 +468,13 @@ function renderMembers(members) {
   const trackFilter = elements.filterTrack.value;
 
   let filtered = members;
-  if (statusFilter) filtered = filtered.filter(m => m.status === statusFilter);
+  if (statusFilter) {
+    if (statusFilter === 'bureau') {
+      filtered = filtered.filter(m => BUREAU_STATUSES.includes(m.status));
+    } else {
+      filtered = filtered.filter(m => m.status === statusFilter);
+    }
+  }
   if (trackFilter) filtered = filtered.filter(m => m.enrollment_track === trackFilter);
 
   elements.membersBadge.textContent = filtered.length;
@@ -584,6 +683,7 @@ async function loadData() {
     statsData = data.stats;
 
     renderStats(statsData);
+    renderBureau(membersData);
     renderPendingApplications(membersData);
     renderMembers(membersData);
     populateTrackFilter(membersData);
@@ -614,6 +714,99 @@ async function handleExport() {
   } catch (err) {
     toastError(err.message);
   }
+}
+
+// ============================================================
+// IMPORT CSV
+// ============================================================
+
+let importData = null;
+
+function handleImportFileChange(event) {
+  const file = event.target.files[0];
+  if (!file) {
+    elements.importBtn.disabled = true;
+    elements.importPreview.classList.add('hidden');
+    importData = null;
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    importData = e.target.result;
+
+    // Show preview
+    const lines = importData.trim().split('\n').slice(0, 6);
+    const previewHtml = lines.map((line, i) => {
+      const cells = line.split(/[,;\t]/).slice(0, 5);
+      return `<tr class="${i === 0 ? 'header-row' : ''}">
+        ${cells.map(c => `<td>${escapeHtml(c.replace(/^"|"$/g, '').trim())}</td>`).join('')}
+        ${cells.length < 5 ? '<td>...</td>' : ''}
+      </tr>`;
+    }).join('');
+
+    elements.importPreviewContent.innerHTML = `
+      <table class="data-table" style="font-size: var(--text-xs);">
+        <tbody>${previewHtml}</tbody>
+      </table>
+      <p style="color: var(--color-text-muted); margin-top: var(--space-2);">
+        ${importData.trim().split('\n').length - 1} ligne(s) de données
+      </p>
+    `;
+    elements.importPreview.classList.remove('hidden');
+    elements.importBtn.disabled = false;
+  };
+  reader.readAsText(file);
+}
+
+async function handleImport() {
+  if (!importData) return;
+
+  elements.importBtn.disabled = true;
+  elements.importBtn.textContent = 'Import en cours...';
+
+  try {
+    const result = await api('/admin/import', {
+      method: 'POST',
+      body: JSON.stringify({ csv: importData })
+    });
+
+    const stats = result.stats;
+    let message = `Import terminé: ${stats.imported} ajouté(s), ${stats.updated} mis à jour`;
+    if (stats.skipped > 0) message += `, ${stats.skipped} ignoré(s)`;
+
+    elements.importResult.innerHTML = `
+      <div class="toast success" style="position: static; transform: none;">
+        ${message}
+      </div>
+      ${result.errors ? `
+        <div style="margin-top: var(--space-2); color: var(--color-error); font-size: var(--text-sm);">
+          <strong>Erreurs:</strong>
+          <ul>${result.errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>
+        </div>
+      ` : ''}
+    `;
+    elements.importResult.classList.remove('hidden');
+
+    toastSuccess(message);
+    loadData();
+
+    // Reset form
+    elements.importFile.value = '';
+    elements.importPreview.classList.add('hidden');
+    importData = null;
+  } catch (err) {
+    toastError(err.message);
+    elements.importResult.innerHTML = `
+      <div class="toast error" style="position: static; transform: none;">
+        Erreur: ${escapeHtml(err.message)}
+      </div>
+    `;
+    elements.importResult.classList.remove('hidden');
+  }
+
+  elements.importBtn.disabled = true;
+  elements.importBtn.textContent = 'Importer';
 }
 
 // ============================================================
@@ -713,6 +906,8 @@ async function init() {
   elements.filterStatus.addEventListener('change', () => renderMembers(membersData));
   elements.filterTrack.addEventListener('change', () => renderMembers(membersData));
   elements.saveSettingsBtn.addEventListener('click', saveSettings);
+  elements.importFile.addEventListener('change', handleImportFileChange);
+  elements.importBtn.addEventListener('click', handleImport);
 
   $('setting-membership-open').addEventListener('change', markSettingsDirty);
   $('setting-current-year').addEventListener('input', markSettingsDirty);

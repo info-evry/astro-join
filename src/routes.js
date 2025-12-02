@@ -13,7 +13,8 @@ import {
   batchUpdateMembers,
   exportMembers,
   getSettings,
-  updateSettings
+  updateSettings,
+  importCSV
 } from './api/admin.js';
 
 export function createRouter() {
@@ -35,6 +36,7 @@ export function createRouter() {
   router.put('/api/admin/members/:id', updateMember);
   router.put('/api/admin/settings', updateSettings);
   router.post('/api/admin/members/batch', batchUpdateMembers);
+  router.post('/api/admin/import', importCSV);
 
   // Admin API routes - Delete
   router.delete('/api/admin/members/:id', deleteMember);
