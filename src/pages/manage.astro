@@ -76,7 +76,7 @@ import AdminLayout from '../layouts/AdminLayout.astro';
         </div>
         <div class="disclosure-body">
           <div class="quick-actions" style="margin-bottom: var(--space-4);">
-            <select id="filter-status" class="form-group" style="margin: 0; width: auto;">
+            <select id="filter-status" class="filter-select">
               <option value="">Tous les statuts</option>
               <option value="active">Membres actifs</option>
               <option value="honor">Membres d'honneur</option>
@@ -85,7 +85,7 @@ import AdminLayout from '../layouts/AdminLayout.astro';
               <option value="rejected">Refusés</option>
               <option value="expired">Expirés</option>
             </select>
-            <select id="filter-track" class="form-group" style="margin: 0; width: auto;">
+            <select id="filter-track" class="filter-select">
               <option value="">Tous les cursus</option>
             </select>
           </div>
@@ -162,9 +162,15 @@ import AdminLayout from '../layouts/AdminLayout.astro';
               <input type="text" id="member-form-lastname" required>
             </div>
           </div>
-          <div class="form-group">
-            <label for="member-form-email">Email *</label>
-            <input type="email" id="member-form-email" required>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="member-form-email">Email *</label>
+              <input type="email" id="member-form-email" required>
+            </div>
+            <div class="form-group">
+              <label for="member-form-studentid">Numéro étudiant</label>
+              <input type="text" id="member-form-studentid" maxlength="32" placeholder="Optionnel">
+            </div>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -451,7 +457,7 @@ function renderPendingApplications(members) {
             <td><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></td>
             <td>${escapeHtml(m.enrollment_track)}</td>
             <td>${getContactInfo(m)}</td>
-            <td>${formatDate(m.created_at)}</td>
+            <td>${formatDate(m.created_at, true)}</td>
             <td class="actions-col">
               <button class="btn btn-sm btn-primary" onclick="approveMember(${m.id})">Approuver</button>
               <button class="btn btn-sm btn-danger" onclick="rejectMember(${m.id})">Refuser</button>
@@ -503,7 +509,7 @@ function renderMembers(members) {
             <td><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></td>
             <td>${escapeHtml(m.enrollment_track)}</td>
             <td><span class="badge badge-${getStatusClass(m.status)}">${getStatusLabel(m.status)}</span></td>
-            <td>${formatDate(m.created_at)}</td>
+            <td>${formatDate(m.created_at, true)}</td>
             <td class="actions-col">
               <button class="btn btn-sm btn-secondary" onclick="editMember(${m.id})">Modifier</button>
               <button class="btn btn-sm btn-danger" onclick="confirmDeleteMember(${m.id})">×</button>
@@ -543,9 +549,12 @@ function getStatusLabel(status) {
   return labels[status] || status;
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr, includeTime = false) {
   if (!dateStr) return '-';
   const date = new Date(dateStr);
+  if (includeTime) {
+    return date.toLocaleDateString('fr-FR') + ' ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
   return date.toLocaleDateString('fr-FR');
 }
 
@@ -599,6 +608,7 @@ window.editMember = function(id) {
   $('member-form-firstname').value = member.first_name;
   $('member-form-lastname').value = member.last_name;
   $('member-form-email').value = member.email;
+  $('member-form-studentid').value = member.student_id || '';
   $('member-form-track').value = member.enrollment_track;
   $('member-form-status').value = member.status;
   $('member-form-notes').value = member.notes || '';
@@ -632,6 +642,7 @@ async function handleMemberSubmit(e) {
         firstName: $('member-form-firstname').value,
         lastName: $('member-form-lastname').value,
         email: $('member-form-email').value,
+        studentId: $('member-form-studentid').value,
         enrollmentTrack: $('member-form-track').value,
         status: $('member-form-status').value,
         notes: $('member-form-notes').value
