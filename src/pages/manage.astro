@@ -75,21 +75,33 @@ import AdminLayout from '../layouts/AdminLayout.astro';
           <h2><span class="disclosure-chevron">&#9654;</span> Tous les membres <span id="members-badge" class="disclosure-badge">0</span></h2>
         </div>
         <div class="disclosure-body">
-          <div class="quick-actions" style="margin-bottom: var(--space-4);">
-            <select id="filter-status" class="filter-select">
-              <option value="">Tous les statuts</option>
-              <option value="active">Membres actifs</option>
-              <option value="honor">Membres d'honneur</option>
-              <option value="bureau">Bureau</option>
-              <option value="pending">En attente</option>
-              <option value="rejected">Refusés</option>
-              <option value="expired">Expirés</option>
-            </select>
-            <select id="filter-track" class="filter-select">
-              <option value="">Tous les cursus</option>
-            </select>
+          <div class="members-toolbar">
+            <div class="filters-row">
+              <input type="search" id="filter-search" class="filter-search" placeholder="Rechercher (nom, email, n° étudiant...)">
+              <select id="filter-status" class="filter-select">
+                <option value="">Tous les statuts</option>
+                <option value="active">Membres actifs</option>
+                <option value="honor">Membres d'honneur</option>
+                <option value="honorary_president">Présidents d'honneur</option>
+                <option value="bureau">Bureau</option>
+                <option value="pending">En attente</option>
+                <option value="rejected">Refusés</option>
+                <option value="expired">Expirés</option>
+              </select>
+              <select id="filter-track" class="filter-select">
+                <option value="">Tous les cursus</option>
+              </select>
+            </div>
+            <div id="bulk-actions" class="bulk-actions hidden">
+              <span id="selection-count">0 sélectionné(s)</span>
+              <button type="button" class="btn btn-sm btn-primary" onclick="bulkApprove()">Approuver</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="bulkSetStatus('active')">→ Actif</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="bulkSetStatus('honor')">→ Honneur</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="bulkSetStatus('expired')">→ Expiré</button>
+              <button type="button" class="btn btn-sm btn-danger" onclick="bulkDelete()">Supprimer</button>
+            </div>
           </div>
-          <div id="members-container"></div>
+          <div id="members-container" class="table-container"></div>
         </div>
       </div>
 
@@ -249,6 +261,14 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function debounce(fn, delay) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
 // ============================================================
 // TOAST NOTIFICATIONS
 // ============================================================
@@ -327,8 +347,11 @@ const elements = {
   pendingBadge: $('pending-badge'),
   membersContainer: $('members-container'),
   membersBadge: $('members-badge'),
+  filterSearch: $('filter-search'),
   filterStatus: $('filter-status'),
   filterTrack: $('filter-track'),
+  bulkActions: $('bulk-actions'),
+  selectionCount: $('selection-count'),
   exportBtn: $('export-btn'),
   refreshBtn: $('refresh-btn'),
   approveAllBtn: $('approve-all-btn'),
@@ -343,6 +366,9 @@ const elements = {
   importPreviewContent: $('import-preview-content'),
   importResult: $('import-result')
 };
+
+// Selection state
+let selectedMembers = new Set();
 
 // Status labels for display
 const STATUS_LABELS = {
@@ -472,8 +498,111 @@ function renderPendingApplications(members) {
 function renderMembers(members) {
   const statusFilter = elements.filterStatus.value;
   const trackFilter = elements.filterTrack.value;
+  const searchQuery = (elements.filterSearch.value || '').toLowerCase().trim();
 
   let filtered = members;
+
+  // Status filter
+  if (statusFilter) {
+    if (statusFilter === 'bureau') {
+      filtered = filtered.filter(m => BUREAU_STATUSES.includes(m.status));
+    } else {
+      filtered = filtered.filter(m => m.status === statusFilter);
+    }
+  }
+
+  // Track filter
+  if (trackFilter) filtered = filtered.filter(m => m.enrollment_track === trackFilter);
+
+  // Search filter
+  if (searchQuery) {
+    filtered = filtered.filter(m => {
+      const searchFields = [
+        m.first_name, m.last_name, m.email, m.student_id,
+        m.phone, m.telegram, m.discord, m.enrollment_track, m.notes
+      ].filter(Boolean).join(' ').toLowerCase();
+      return searchFields.includes(searchQuery);
+    });
+  }
+
+  elements.membersBadge.textContent = filtered.length;
+
+  // Update selection to only include visible members
+  const visibleIds = new Set(filtered.map(m => m.id));
+  selectedMembers = new Set([...selectedMembers].filter(id => visibleIds.has(id)));
+  updateSelectionUI();
+
+  if (filtered.length === 0) {
+    elements.membersContainer.innerHTML = '<p class="text-muted">Aucun membre trouvé</p>';
+    return;
+  }
+
+  const allSelected = filtered.length > 0 && filtered.every(m => selectedMembers.has(m.id));
+
+  elements.membersContainer.innerHTML = `
+    <table class="data-table members-table-wide">
+      <thead>
+        <tr>
+          <th class="checkbox-col">
+            <input type="checkbox" id="select-all" ${allSelected ? 'checked' : ''} onchange="toggleSelectAll(this.checked)">
+          </th>
+          <th>Nom</th>
+          <th>Email</th>
+          <th>N° Étudiant</th>
+          <th>Cursus</th>
+          <th>Contact</th>
+          <th>Statut</th>
+          <th>Inscription</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map(m => `
+          <tr data-id="${m.id}" class="${selectedMembers.has(m.id) ? 'selected' : ''}">
+            <td class="checkbox-col">
+              <input type="checkbox" ${selectedMembers.has(m.id) ? 'checked' : ''} onchange="toggleMemberSelection(${m.id}, this.checked)">
+            </td>
+            <td>
+              <strong>${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</strong>
+              ${m.notes ? `<br><small class="text-muted">${escapeHtml(m.notes.substring(0, 50))}${m.notes.length > 50 ? '...' : ''}</small>` : ''}
+            </td>
+            <td><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></td>
+            <td>${m.student_id ? escapeHtml(m.student_id) : '<span class="text-muted">-</span>'}</td>
+            <td>${escapeHtml(m.enrollment_track)}</td>
+            <td class="contact-cell">${getContactInfo(m)}</td>
+            <td><span class="badge badge-${getStatusClass(m.status)}">${getStatusLabel(m.status)}</span></td>
+            <td>${formatDate(m.created_at, true)}</td>
+            <td class="actions-col">
+              <div class="action-buttons">
+                <button class="btn btn-sm btn-secondary" onclick="editMember(${m.id})" title="Modifier">✏️</button>
+                ${m.status === 'pending' ? `<button class="btn btn-sm btn-primary" onclick="approveMember(${m.id})" title="Approuver">✓</button>` : ''}
+                <button class="btn btn-sm btn-danger" onclick="confirmDeleteMember(${m.id})" title="Supprimer">×</button>
+              </div>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function updateSelectionUI() {
+  const count = selectedMembers.size;
+  elements.selectionCount.textContent = `${count} sélectionné(s)`;
+
+  if (count > 0) {
+    elements.bulkActions.classList.remove('hidden');
+  } else {
+    elements.bulkActions.classList.add('hidden');
+  }
+}
+
+window.toggleSelectAll = function(checked) {
+  const statusFilter = elements.filterStatus.value;
+  const trackFilter = elements.filterTrack.value;
+  const searchQuery = (elements.filterSearch.value || '').toLowerCase().trim();
+
+  let filtered = membersData;
   if (statusFilter) {
     if (statusFilter === 'bureau') {
       filtered = filtered.filter(m => BUREAU_STATUSES.includes(m.status));
@@ -482,44 +611,43 @@ function renderMembers(members) {
     }
   }
   if (trackFilter) filtered = filtered.filter(m => m.enrollment_track === trackFilter);
-
-  elements.membersBadge.textContent = filtered.length;
-
-  if (filtered.length === 0) {
-    elements.membersContainer.innerHTML = '<p class="text-muted">Aucun membre trouvé</p>';
-    return;
+  if (searchQuery) {
+    filtered = filtered.filter(m => {
+      const searchFields = [m.first_name, m.last_name, m.email, m.student_id, m.phone, m.telegram, m.discord, m.enrollment_track, m.notes].filter(Boolean).join(' ').toLowerCase();
+      return searchFields.includes(searchQuery);
+    });
   }
 
-  elements.membersContainer.innerHTML = `
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Nom</th>
-          <th>Email</th>
-          <th>Cursus</th>
-          <th>Statut</th>
-          <th>Date</th>
-          <th class="actions-col">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filtered.map(m => `
-          <tr data-id="${m.id}">
-            <td>${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</td>
-            <td><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></td>
-            <td>${escapeHtml(m.enrollment_track)}</td>
-            <td><span class="badge badge-${getStatusClass(m.status)}">${getStatusLabel(m.status)}</span></td>
-            <td>${formatDate(m.created_at, true)}</td>
-            <td class="actions-col">
-              <button class="btn btn-sm btn-secondary" onclick="editMember(${m.id})">Modifier</button>
-              <button class="btn btn-sm btn-danger" onclick="confirmDeleteMember(${m.id})">×</button>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-}
+  if (checked) {
+    filtered.forEach(m => selectedMembers.add(m.id));
+  } else {
+    selectedMembers.clear();
+  }
+  renderMembers(membersData);
+};
+
+window.toggleMemberSelection = function(id, checked) {
+  if (checked) {
+    selectedMembers.add(id);
+  } else {
+    selectedMembers.delete(id);
+  }
+  updateSelectionUI();
+
+  // Update row styling
+  const row = document.querySelector(`tr[data-id="${id}"]`);
+  if (row) {
+    row.classList.toggle('selected', checked);
+  }
+
+  // Update select-all checkbox
+  const selectAll = $('select-all');
+  if (selectAll) {
+    const visibleRows = document.querySelectorAll('#members-container tbody tr');
+    const allChecked = [...visibleRows].every(row => selectedMembers.has(parseInt(row.dataset.id)));
+    selectAll.checked = allChecked && visibleRows.length > 0;
+  }
+};
 
 function getContactInfo(m) {
   const contacts = [];
@@ -682,6 +810,98 @@ async function approveAll() {
   };
   openModal('confirm-modal');
 }
+
+// ============================================================
+// BULK ACTIONS
+// ============================================================
+
+window.bulkApprove = async function() {
+  if (selectedMembers.size === 0) return;
+
+  const ids = [...selectedMembers];
+  $('confirm-message').textContent = `Approuver ${ids.length} membre(s) sélectionné(s) ?`;
+  elements.confirmBtn.className = 'btn btn-primary';
+  elements.confirmBtn.textContent = 'Approuver';
+  elements.confirmBtn.onclick = async () => {
+    try {
+      await api('/admin/members/batch', {
+        method: 'POST',
+        body: JSON.stringify({
+          memberIds: ids,
+          status: 'active',
+          reason: 'Bulk approved by admin'
+        })
+      });
+      toastSuccess(`${ids.length} membre(s) approuvé(s)`);
+      selectedMembers.clear();
+      closeModal('confirm-modal');
+      loadData();
+    } catch (err) {
+      toastError(err.message);
+    }
+  };
+  openModal('confirm-modal');
+};
+
+window.bulkSetStatus = async function(newStatus) {
+  if (selectedMembers.size === 0) return;
+
+  const ids = [...selectedMembers];
+  const statusLabel = STATUS_LABELS[newStatus] || newStatus;
+
+  $('confirm-message').textContent = `Définir ${ids.length} membre(s) comme "${statusLabel}" ?`;
+  elements.confirmBtn.className = 'btn btn-primary';
+  elements.confirmBtn.textContent = 'Confirmer';
+  elements.confirmBtn.onclick = async () => {
+    try {
+      await api('/admin/members/batch', {
+        method: 'POST',
+        body: JSON.stringify({
+          memberIds: ids,
+          status: newStatus,
+          reason: `Bulk status change to ${newStatus} by admin`
+        })
+      });
+      toastSuccess(`${ids.length} membre(s) mis à jour`);
+      selectedMembers.clear();
+      closeModal('confirm-modal');
+      loadData();
+    } catch (err) {
+      toastError(err.message);
+    }
+  };
+  openModal('confirm-modal');
+};
+
+window.bulkDelete = async function() {
+  if (selectedMembers.size === 0) return;
+
+  const ids = [...selectedMembers];
+  $('confirm-message').innerHTML = `<strong style="color: var(--color-error);">Supprimer définitivement ${ids.length} membre(s) ?</strong><br><small>Cette action est irréversible.</small>`;
+  elements.confirmBtn.className = 'btn btn-danger';
+  elements.confirmBtn.textContent = 'Supprimer';
+  elements.confirmBtn.onclick = async () => {
+    try {
+      // Delete one by one (no batch delete endpoint yet)
+      let deleted = 0;
+      for (const id of ids) {
+        try {
+          await api(`/admin/members/${id}`, { method: 'DELETE' });
+          deleted++;
+        } catch (e) {
+          console.error(`Failed to delete member ${id}:`, e);
+        }
+      }
+      toastSuccess(`${deleted} membre(s) supprimé(s)`);
+      selectedMembers.clear();
+      closeModal('confirm-modal');
+      loadData();
+    } catch (err) {
+      toastError(err.message);
+    }
+  };
+  openModal('confirm-modal');
+};
 
 // ============================================================
 // DATA LOADING
@@ -914,6 +1134,7 @@ async function init() {
   });
   elements.approveAllBtn.addEventListener('click', approveAll);
   elements.memberForm.addEventListener('submit', handleMemberSubmit);
+  elements.filterSearch.addEventListener('input', debounce(() => renderMembers(membersData), 300));
   elements.filterStatus.addEventListener('change', () => renderMembers(membersData));
   elements.filterTrack.addEventListener('change', () => renderMembers(membersData));
   elements.saveSettingsBtn.addEventListener('click', saveSettings);
@@ -948,3 +1169,123 @@ async function init() {
 
 init();
 </script>
+
+<style>
+/* Members toolbar and filters */
+.members-toolbar {
+  margin-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.filter-search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: var(--text-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.filter-search:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0, 27, 165, 0.2);
+}
+
+.filter-search::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Bulk actions bar */
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: rgba(0, 27, 165, 0.1);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+
+.bulk-actions span {
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-right: var(--space-2);
+}
+
+/* Wide table for more columns */
+.table-container {
+  overflow-x: auto;
+}
+
+.members-table-wide {
+  min-width: 1000px;
+}
+
+.members-table-wide th,
+.members-table-wide td {
+  white-space: nowrap;
+}
+
+.members-table-wide td:nth-child(2) {
+  white-space: normal;
+  max-width: 200px;
+}
+
+/* Contact cell */
+.contact-cell {
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+/* Action buttons in table */
+.action-buttons {
+  display: flex;
+  gap: var(--space-1);
+}
+
+/* Selected row */
+tr.selected td {
+  background: rgba(0, 27, 165, 0.1) !important;
+}
+
+/* Text muted helper */
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+small.text-muted {
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 768px) {
+  .filters-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-search {
+    max-width: none;
+  }
+
+  .bulk-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+</style>

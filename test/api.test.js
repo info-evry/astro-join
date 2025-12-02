@@ -817,6 +817,37 @@ describe('Admin API', () => {
       const data = await response.json();
       expect(data.error).toContain('Invalid status');
     });
+
+    it('should allow multiple honorary presidents', async () => {
+      // Create first honorary president
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('First', 'Honorary', 'honorary1@test.com', 'L3 Informatique', 'honorary_president', '@honorary1').run();
+
+      // Create another member
+      await env.DB.prepare(`
+        INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind('Second', 'Honorary', 'honorary2@test.com', 'L3 Informatique', 'active', '@honorary2').run();
+
+      const other = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('honorary2@test.com').first();
+
+      // Should allow setting second person as honorary_president (not unique)
+      const response = await SELF.fetch(`http://localhost/api/admin/members/${other.id}`, {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({ status: 'honorary_president' })
+      });
+
+      expect(response.status).toBe(200);
+
+      // Verify both are honorary presidents
+      const honoraryPresidents = await env.DB.prepare(
+        "SELECT COUNT(*) as count FROM members WHERE status = 'honorary_president'"
+      ).first();
+      expect(honoraryPresidents.count).toBe(2);
+    });
   });
 
   describe('POST /api/admin/import', () => {
@@ -990,6 +1021,30 @@ Bob,Boss,bob@test.com,Trésorier`;
 
       expect(alice.status).toBe('secretary');
       expect(bob.status).toBe('treasurer');
+    });
+
+    it('should allow importing multiple honorary presidents', async () => {
+      const csv = `Prénom,Nom,Email,Statut
+First,Honorary,honorary1@test.com,Président d'honneur
+Second,Honorary,honorary2@test.com,Président d'honneur
+Third,Honorary,honorary3@test.com,Président d'honneur`;
+
+      const response = await SELF.fetch('http://localhost/api/admin/import', {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({ csv })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.stats.imported).toBe(3);
+      expect(data.stats.skipped).toBe(0);
+
+      // Verify all three are honorary presidents
+      const honoraryPresidents = await env.DB.prepare(
+        "SELECT COUNT(*) as count FROM members WHERE status = 'honorary_president'"
+      ).first();
+      expect(honoraryPresidents.count).toBe(3);
     });
   });
 });

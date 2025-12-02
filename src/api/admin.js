@@ -32,8 +32,9 @@ const VALID_STATUSES = [
 
 /**
  * Bureau positions that can only be held by one person
+ * Note: honorary_president is NOT unique - can have multiple
  */
-const BUREAU_POSITIONS = ['secretary', 'treasurer', 'president', 'honorary_president', 'vice_president'];
+const BUREAU_POSITIONS = ['secretary', 'treasurer', 'president', 'vice_president'];
 
 /**
  * Status display labels
