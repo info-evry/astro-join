@@ -622,9 +622,9 @@ function renderMembers(members) {
             <td>${formatDate(m.created_at, true)}</td>
             <td class="actions-col">
               <div class="action-buttons">
-                <button class="btn btn-sm btn-secondary" onclick="editMember(${m.id})" title="Modifier">✏️</button>
-                ${m.status === 'pending' ? `<button class="btn btn-sm btn-primary" onclick="approveMember(${m.id})" title="Approuver">✓</button>` : ''}
-                <button class="btn btn-sm btn-danger" onclick="confirmDeleteMember(${m.id})" title="Supprimer">×</button>
+                <button class="icon-btn icon-btn-sm icon-btn-secondary" onclick="editMember(${m.id})" title="Modifier" aria-label="Modifier le membre">􀈊</button>
+                ${m.status === 'pending' ? `<button class="icon-btn icon-btn-sm icon-btn-secondary" onclick="approveMember(${m.id})" title="Approuver" aria-label="Approuver le membre" style="color: var(--color-success);">􀁢</button>` : ''}
+                <button class="icon-btn icon-btn-sm icon-btn-danger" onclick="confirmDeleteMember(${m.id})" title="Supprimer" aria-label="Supprimer le membre">􀁡</button>
               </div>
             </td>
           </tr>
