@@ -29,7 +29,8 @@ const {
 } = Astro.props;
 
 // Ensure siteUrl has trailing slash for relative URL resolution
-const siteUrl = (associationInfo.sites.join?.url || associationInfo.sites.asso.url).replace(/\/?$/, '/');
+const rawUrl = associationInfo.sites?.join?.url || associationInfo.sites?.asso?.url;
+const siteUrl = rawUrl ? rawUrl.replace(/\/?$/, '/') : '/';
 const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
 ---
 
@@ -63,9 +64,15 @@ const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
    Styles that extend or override the design system
    =========================================== */
 
+:root {
+  --container-max-form: 960px;
+  --color-primary-shadow: rgba(0, 27, 165, 0.4);
+  --shadow-primary-hover: rgba(0, 27, 165, 0.5);
+}
+
 /* Container - narrower for form */
 .container {
-  max-width: 960px;
+  max-width: var(--container-max-form);
   padding: var(--space-8) var(--space-4);
 }
 
@@ -92,12 +99,12 @@ const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
 
 .btn-primary {
   background: var(--gradient-primary);
-  box-shadow: 0 4px 14px rgba(0, 27, 165, 0.4);
+  box-shadow: 0 4px 14px var(--color-primary-shadow);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 27, 165, 0.5);
+  box-shadow: 0 6px 20px var(--shadow-primary-hover);
 }
 
 .btn-secondary {

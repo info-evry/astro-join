@@ -31,31 +31,50 @@ export class Router {
   delete(path, handler) { return this.add('DELETE', path, handler); }
 
   async handle(request, env, ctx) {
-    const url = new URL(request.url);
-    const method = request.method.toUpperCase();
-    let path = url.pathname;
+    try {
+      const url = new URL(request.url);
+      const method = request.method.toUpperCase();
+      let path = url.pathname;
 
-    // Strip base path if present
-    if (this.basePath && path.startsWith(this.basePath)) {
-      path = path.slice(this.basePath.length) || '/';
-    }
-
-    for (const route of this.routes) {
-      if (route.method !== method && route.method !== 'ALL') continue;
-      const match = path.match(route.pattern);
-      if (match) {
-        const params = match.groups || {};
-        return route.handler(request, env, ctx, params);
+      // Strip base path if present
+      if (this.basePath && path.startsWith(this.basePath)) {
+        path = path.slice(this.basePath.length) || '/';
       }
+
+      for (const route of this.routes) {
+        if (route.method !== method && route.method !== 'ALL') continue;
+        const match = path.match(route.pattern);
+        if (match) {
+          const params = match.groups || {};
+          return await route.handler(request, env, ctx, params);
+        }
+      }
+      return new Response('Not Found', {status: 404}); // No route matched
+    } catch (err) {
+      console.error('Router error:', err);
+      return new Response(
+        'Internal Server Error',
+        {
+          status: 500,
+          statusText: 'Internal Server Error',
+          headers: {'Content-Type': 'text/plain'},
+        }
+      );
     }
-    return null; // No route matched
   }
 }
 
 /**
  * CORS headers for cross-origin requests
  */
-export function corsHeaders(origin = '*') {
+/**
+ * Returns CORS headers. Always require an explicit origin for security.
+ * @param {string} origin - Origin to allow for cross-origin requests (must be specified)
+ */
+export function corsHeaders(origin) {
+  if (!origin) {
+    throw new Error("You must explicitly specify the 'origin' for CORS headers; using '*' as a default is insecure.");
+  }
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
