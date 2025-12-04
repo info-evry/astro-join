@@ -65,7 +65,7 @@ import AdminLayout from '../layouts/AdminLayout.astro';
           </div>
         </div>
         <div class="disclosure-body">
-          <div id="pending-container"></div>
+          <div id="pending-container" class="table-container"></div>
         </div>
       </div>
 
@@ -487,7 +487,9 @@ function renderBureau(members) {
           <div class="bureau-role">${STATUS_LABELS[m.status] || m.status}</div>
           <div class="bureau-name">${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</div>
           <div class="bureau-email"><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></div>
-          <button class="btn btn-sm btn-secondary" onclick="editMember(${m.id})">Modifier</button>
+          <div class="bureau-actions">
+            <button class="icon-btn" onclick="editMember(${m.id})" title="Modifier" aria-label="Modifier le membre">􀈊</button>
+          </div>
         </div>
       `).join('')}
     </div>
