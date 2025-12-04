@@ -12,7 +12,7 @@
   },
   "keywords": ["astro", "cloudflare", "workers", "d1", "membership"],
   "author": "Asso Info Evry",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "astro": "^5.16.2",
     "@astrojs/cloudflare": "^12.6.12"
