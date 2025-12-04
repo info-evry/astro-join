@@ -125,7 +125,7 @@ import AdminLayout from '../layouts/AdminLayout.astro';
               <div id="import-preview-content"></div>
             </div>
             <div class="quick-actions">
-              <button type="button" id="import-btn" class="btn btn-primary" disabled>Importer</button>
+              <button type="button" id="import-btn" class="btn btn-primary btn-sm" disabled>Importer</button>
             </div>
             <div id="import-result" class="hidden" style="margin-top: var(--space-4);"></div>
           </div>
@@ -527,8 +527,10 @@ function renderPendingApplications(members) {
             <td>${getContactInfo(m)}</td>
             <td>${formatDate(m.created_at, true)}</td>
             <td class="actions-col">
-              <button class="btn btn-sm btn-primary" onclick="approveMember(${m.id})">Approuver</button>
-              <button class="btn btn-sm btn-danger" onclick="rejectMember(${m.id})">Refuser</button>
+              <div class="action-buttons">
+                <button class="action-btn primary" onclick="approveMember(${m.id})">Approuver</button>
+                <button class="action-btn danger" onclick="rejectMember(${m.id})">Refuser</button>
+              </div>
             </td>
           </tr>
         `).join('')}
