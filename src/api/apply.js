@@ -2,7 +2,7 @@
  * Membership application endpoint
  */
 
-import { json, error, success } from '../shared/response.js';
+import { error, success } from '../shared/response.js';
 
 /**
  * Submit a membership application
@@ -108,8 +108,11 @@ function validateApplication(data) {
 }
 
 /**
- * Email validation helper
+ * Email validation helper (ReDoS-safe)
  */
 function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!email || typeof email !== 'string' || email.length > 254) return false;
+  const atIndex = email.indexOf('@');
+  const dotIndex = email.lastIndexOf('.');
+  return atIndex > 0 && dotIndex > atIndex + 1 && dotIndex < email.length - 1 && !email.includes(' ');
 }

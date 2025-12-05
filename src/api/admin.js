@@ -5,6 +5,18 @@
 import { json, error, success, csv } from '../shared/response.js';
 
 /**
+ * Validate email format without ReDoS-vulnerable regex
+ * @param {string} email
+ * @returns {boolean}
+ */
+function isValidEmail(email) {
+  if (!email || typeof email !== 'string' || email.length > 254) return false;
+  const atIndex = email.indexOf('@');
+  const dotIndex = email.lastIndexOf('.');
+  return atIndex > 0 && dotIndex > atIndex + 1 && dotIndex < email.length - 1 && !email.includes(' ');
+}
+
+/**
  * Constant-time string comparison to prevent timing attacks
  * @param {string} a
  * @param {string} b
@@ -21,9 +33,9 @@ function timingSafeEqual(a, b) {
 
   // If lengths differ, compare a against itself to maintain constant time
   if (aBytes.length !== bBytes.length) {
-    let result = 0;
+    let _unused = 0;
     for (let i = 0; i < aBytes.length; i++) {
-      result |= aBytes[i] ^ aBytes[i];
+      _unused |= aBytes[i] ^ aBytes[i];
     }
     return false;
   }
@@ -706,7 +718,7 @@ export const importCSV = adminOnly(async (request, env) => {
       }
 
       // Validate email format
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!isValidEmail(email)) {
         stats.errors.push(`Row ${i + 1}: Invalid email format`);
         stats.skipped++;
         continue;
