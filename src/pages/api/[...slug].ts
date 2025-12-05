@@ -61,7 +61,9 @@ export const ALL: APIRoute = async ({ request, locals }) => {
     }
     return error('Not found', 404);
   } catch (err) {
-    console.error('API error:', err);
+    // Log error type only, not full stack trace (security)
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('API error:', errMsg);
     return error('Internal server error', 500);
   }
 };
