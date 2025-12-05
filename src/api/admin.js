@@ -217,6 +217,127 @@ export const adminStats = adminOnly(async (request, env) => {
 });
 
 /**
+ * Build field updates from request body
+ */
+function buildFieldUpdates(body, updates, values) {
+  const fieldMappings = [
+    ['firstName', 'first_name', v => v.trim()],
+    ['lastName', 'last_name', v => v.trim()],
+    ['email', 'email', v => v.toLowerCase().trim()],
+    ['studentId', 'student_id', v => v?.trim() || null],
+    ['enrollmentTrack', 'enrollment_track', v => v],
+    ['phone', 'phone', v => v?.trim() || null],
+    ['telegram', 'telegram', v => v?.trim() || null],
+    ['discord', 'discord', v => v?.trim() || null],
+    ['enrollmentNumber', 'enrollment_number', v => v?.trim() || null],
+    ['notes', 'notes', v => v?.trim() || null]
+  ];
+
+  for (const [bodyKey, dbColumn, transform] of fieldMappings) {
+    if (body[bodyKey] !== undefined) {
+      updates.push(`${dbColumn} = ?`);
+      values.push(transform(body[bodyKey]));
+    }
+  }
+}
+
+/**
+ * Handle bureau position status update with atomic check
+ */
+async function handleBureauStatusUpdate(database, memberId, newStatus, currentStatus, reason) {
+  const atomicResult = await database.prepare(`
+    UPDATE members
+    SET status = ?,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+      AND NOT EXISTS (
+        SELECT 1 FROM members WHERE status = ? AND id != ?
+      )
+  `).bind(newStatus, memberId, newStatus, memberId).run();
+
+  if (atomicResult.meta.changes === 0) {
+    const existing = await database.prepare(
+      'SELECT id, first_name, last_name FROM members WHERE status = ? AND id != ?'
+    ).bind(newStatus, memberId).first();
+
+    if (existing) {
+      return { error: `Le rôle ${STATUS_LABELS[newStatus]} est déjà attribué à ${existing.first_name} ${existing.last_name}` };
+    }
+    return { error: 'Member not found', status: 404 };
+  }
+
+  // Log status change
+  await database.prepare(`
+    INSERT INTO membership_history (member_id, old_status, new_status, reason)
+    VALUES (?, ?, ?, ?)
+  `).bind(memberId, currentStatus, newStatus, reason || 'Status updated by admin').run();
+
+  return { success: true };
+}
+
+/**
+ * Set approval date and expiry for active-like statuses
+ */
+async function setApprovalDates(database, memberId, newStatus, currentStatus, updates, values) {
+  const activeStatuses = ['active', 'honor', ...BUREAU_POSITIONS];
+  if (activeStatuses.includes(newStatus) && !activeStatuses.includes(currentStatus)) {
+    const now = new Date();
+    const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+
+    updates.push('approved_at = CURRENT_TIMESTAMP');
+    updates.push('expires_at = ?');
+    values.push(`${year}-08-31`);
+  }
+}
+
+/**
+ * Handle status change in member update
+ * Returns { done: true } if update was completed, or { error, status } if failed, or {} to continue
+ */
+async function handleStatusChange(database, memberId, body, current, updates, values) {
+  if (body.status === undefined) return {};
+
+  if (!VALID_STATUSES.includes(body.status)) {
+    return { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`, status: 400 };
+  }
+
+  if (BUREAU_POSITIONS.includes(body.status)) {
+    const result = await handleBureauStatusUpdate(database, memberId, body.status, current.status, body.reason);
+    if (result.error) return result;
+
+    const hasOtherUpdates = body.approvedAt !== undefined || body.expiresAt !== undefined ||
+        body.enrollmentNumber !== undefined || body.notes !== undefined;
+
+    if (!hasOtherUpdates && updates.length === 0) {
+      await setApprovalDates(database, memberId, body.status, current.status, updates, values);
+      if (updates.length > 0) {
+        await database.prepare(`UPDATE members SET ${updates.join(', ')} WHERE id = ?`)
+          .bind(...values, memberId).run();
+      }
+      return { done: true };
+    }
+  } else {
+    updates.push('status = ?');
+    values.push(body.status);
+    await setApprovalDates(database, memberId, body.status, current.status, updates, values);
+  }
+
+  return {};
+}
+
+/**
+ * Log member status change to history
+ */
+async function logStatusChange(database, memberId, body, current) {
+  if (body.status !== undefined && body.status !== current.status && !BUREAU_POSITIONS.includes(body.status)) {
+    await database.prepare(`
+      INSERT INTO membership_history (member_id, old_status, new_status, reason)
+      VALUES (?, ?, ?, ?)
+    `).bind(memberId, current.status, body.status, body.reason || 'Status updated by admin').run();
+  }
+}
+
+/**
  * Update member status
  * PUT /api/admin/members/:id
  */
@@ -225,135 +346,19 @@ export const updateMember = adminOnly(async (request, env, ctx, params) => {
     const memberId = parseInt(params.id);
     const body = await request.json();
 
-    // Get current member
-    const current = await env.DB.prepare(
-      'SELECT * FROM members WHERE id = ?'
-    ).bind(memberId).first();
-
+    const current = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(memberId).first();
     if (!current) {
       return error('Member not found', 404);
     }
 
-    // Build update query
     const updates = [];
     const values = [];
 
-    if (body.firstName !== undefined) {
-      updates.push('first_name = ?');
-      values.push(body.firstName.trim());
-    }
-    if (body.lastName !== undefined) {
-      updates.push('last_name = ?');
-      values.push(body.lastName.trim());
-    }
-    if (body.email !== undefined) {
-      updates.push('email = ?');
-      values.push(body.email.toLowerCase().trim());
-    }
-    if (body.studentId !== undefined) {
-      updates.push('student_id = ?');
-      values.push(body.studentId?.trim() || null);
-    }
-    if (body.enrollmentTrack !== undefined) {
-      updates.push('enrollment_track = ?');
-      values.push(body.enrollmentTrack);
-    }
-    if (body.phone !== undefined) {
-      updates.push('phone = ?');
-      values.push(body.phone?.trim() || null);
-    }
-    if (body.telegram !== undefined) {
-      updates.push('telegram = ?');
-      values.push(body.telegram?.trim() || null);
-    }
-    if (body.discord !== undefined) {
-      updates.push('discord = ?');
-      values.push(body.discord?.trim() || null);
-    }
-    if (body.status !== undefined) {
-      // Validate status
-      if (!VALID_STATUSES.includes(body.status)) {
-        return error(`Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`, 400);
-      }
+    buildFieldUpdates(body, updates, values);
 
-      // For bureau positions, use atomic check-and-set to prevent race conditions
-      // This handles the case where two concurrent requests try to assign the same position
-      if (BUREAU_POSITIONS.includes(body.status)) {
-        // Use a subquery in UPDATE to atomically check and set
-        // The update only succeeds if no one else holds this position
-        const atomicResult = await env.DB.prepare(`
-          UPDATE members
-          SET status = ?,
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-            AND NOT EXISTS (
-              SELECT 1 FROM members WHERE status = ? AND id != ?
-            )
-        `).bind(body.status, memberId, body.status, memberId).run();
-
-        if (atomicResult.meta.changes === 0) {
-          // Either member doesn't exist or position is already taken
-          const existing = await env.DB.prepare(
-            'SELECT id, first_name, last_name FROM members WHERE status = ? AND id != ?'
-          ).bind(body.status, memberId).first();
-
-          if (existing) {
-            return error(
-              `Le rôle ${STATUS_LABELS[body.status]} est déjà attribué à ${existing.first_name} ${existing.last_name}`,
-              400
-            );
-          }
-          return error('Member not found', 404);
-        }
-
-        // Status was updated atomically, now handle other fields and history
-        // Remove status from regular updates since it's already done
-        if (body.approvedAt !== undefined || body.expiresAt !== undefined ||
-            body.enrollmentNumber !== undefined || body.notes !== undefined) {
-          // Continue with other updates below
-        } else {
-          // Only status change, log and return
-          await env.DB.prepare(`
-            INSERT INTO membership_history (member_id, old_status, new_status, reason)
-            VALUES (?, ?, ?, ?)
-          `).bind(memberId, current.status, body.status, body.reason || 'Status updated by admin').run();
-
-          // Set approval date and expiry for active-like statuses
-          const activeStatuses = ['active', 'honor', ...BUREAU_POSITIONS];
-          if (activeStatuses.includes(body.status) && !activeStatuses.includes(current.status)) {
-            const now = new Date();
-            const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
-            await env.DB.prepare(`
-              UPDATE members SET approved_at = CURRENT_TIMESTAMP, expires_at = ? WHERE id = ?
-            `).bind(`${year}-08-31`, memberId).run();
-          }
-
-          return success('Member updated successfully');
-        }
-      } else {
-        updates.push('status = ?');
-        values.push(body.status);
-      }
-
-      // Set approval date and expiry for active-like statuses
-      const activeStatuses = ['active', 'honor', ...BUREAU_POSITIONS];
-      if (activeStatuses.includes(body.status) && !activeStatuses.includes(current.status)) {
-        updates.push('approved_at = CURRENT_TIMESTAMP');
-        // Set expiry to end of academic year (August 31)
-        const now = new Date();
-        const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
-        updates.push('expires_at = ?');
-        values.push(`${year}-08-31`);
-      }
-    }
-    if (body.enrollmentNumber !== undefined) {
-      updates.push('enrollment_number = ?');
-      values.push(body.enrollmentNumber?.trim() || null);
-    }
-    if (body.notes !== undefined) {
-      updates.push('notes = ?');
-      values.push(body.notes?.trim() || null);
-    }
+    const statusResult = await handleStatusChange(env.DB, memberId, body, current, updates, values);
+    if (statusResult.error) return error(statusResult.error, statusResult.status || 400);
+    if (statusResult.done) return success('Member updated successfully');
 
     updates.push('updated_at = CURRENT_TIMESTAMP');
 
@@ -362,23 +367,9 @@ export const updateMember = adminOnly(async (request, env, ctx, params) => {
     }
 
     values.push(memberId);
+    await env.DB.prepare(`UPDATE members SET ${updates.join(', ')} WHERE id = ?`).bind(...values).run();
 
-    await env.DB.prepare(`
-      UPDATE members SET ${updates.join(', ')} WHERE id = ?
-    `).bind(...values).run();
-
-    // Log status change
-    if (body.status !== undefined && body.status !== current.status) {
-      await env.DB.prepare(`
-        INSERT INTO membership_history (member_id, old_status, new_status, reason)
-        VALUES (?, ?, ?, ?)
-      `).bind(
-        memberId,
-        current.status,
-        body.status,
-        body.reason || 'Status updated by admin'
-      ).run();
-    }
+    await logStatusChange(env.DB, memberId, body, current);
 
     return success('Member updated successfully');
   } catch (err) {
@@ -632,6 +623,126 @@ function mapStatusFromLabel(label) {
   return mappings[normalized] || 'active';
 }
 
+// Header mappings for CSV import
+const HEADER_MAPPINGS = {
+  firstName: ['prénom', 'prenom', 'firstname'],
+  lastName: ['nom', 'lastname'],
+  email: ['email', 'mail'],
+  phone: ['téléphone', 'telephone', 'phone', 'tel'],
+  studentId: ['numéro étudiant', 'numero etudiant', 'n° étudiant', 'student_id', 'numéro', 'numero'],
+  enrollmentNumber: ['enrollment_number'],
+  enrollmentTrack: ["filière d'inscription", 'filiere', 'track', 'enrollment_track', 'cursus'],
+  status: ['statut', 'status']
+};
+
+/**
+ * Parse CSV headers to field mappings
+ */
+function parseCSVHeaders(rawHeaders) {
+  const headerMap = {};
+  for (let i = 0; i < rawHeaders.length; i++) {
+    const h = rawHeaders[i].toLowerCase().trim();
+    for (const [field, aliases] of Object.entries(HEADER_MAPPINGS)) {
+      if (aliases.includes(h)) {
+        headerMap[field] = i;
+        break;
+      }
+    }
+  }
+  return headerMap;
+}
+
+/**
+ * Extract member data from CSV row
+ */
+function extractMemberFromRow(values, headerMap) {
+  return {
+    firstName: values[headerMap.firstName]?.trim(),
+    lastName: values[headerMap.lastName]?.trim(),
+    email: values[headerMap.email]?.toLowerCase().trim(),
+    phone: headerMap.phone !== undefined ? values[headerMap.phone]?.trim() : null,
+    studentId: headerMap.studentId !== undefined ? values[headerMap.studentId]?.trim() : null,
+    enrollmentNumber: headerMap.enrollmentNumber !== undefined ? values[headerMap.enrollmentNumber]?.trim() : null,
+    enrollmentTrack: headerMap.enrollmentTrack !== undefined ? values[headerMap.enrollmentTrack]?.trim() : 'Autre',
+    status: mapStatusFromLabel(headerMap.status !== undefined ? values[headerMap.status]?.trim() : null)
+  };
+}
+
+/**
+ * Validate member data for import
+ */
+function validateImportRow(member, rowIndex, bureauInImport, bureauMap, stats) {
+  if (!member.firstName || !member.lastName || !member.email) {
+    stats.errors.push(`Row ${rowIndex}: Missing required fields`);
+    stats.skipped++;
+    return false;
+  }
+
+  if (!isValidEmail(member.email)) {
+    stats.errors.push(`Row ${rowIndex}: Invalid email format`);
+    stats.skipped++;
+    return false;
+  }
+
+  if (BUREAU_POSITIONS.includes(member.status)) {
+    if (bureauInImport[member.status]) {
+      stats.errors.push(`Row ${rowIndex}: Role ${STATUS_LABELS[member.status]} already assigned in this import`);
+      stats.skipped++;
+      return false;
+    }
+
+    const existing = bureauMap.get(member.status);
+    if (existing && existing.email !== member.email) {
+      stats.errors.push(`Row ${rowIndex}: Role ${STATUS_LABELS[member.status]} already held by ${existing.first_name} ${existing.last_name}`);
+      stats.skipped++;
+      return false;
+    }
+
+    bureauInImport[member.status] = member.email;
+  }
+
+  return true;
+}
+
+/**
+ * Import or update a single member
+ */
+async function importOrUpdateMember(database, member, stats) {
+  const existingMember = await database.prepare('SELECT id FROM members WHERE email = ?')
+    .bind(member.email).first();
+
+  if (existingMember) {
+    await database.prepare(`
+      UPDATE members SET
+        first_name = ?, last_name = ?,
+        phone = COALESCE(?, phone), student_id = COALESCE(?, student_id),
+        enrollment_number = COALESCE(?, enrollment_number),
+        enrollment_track = COALESCE(?, enrollment_track),
+        status = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(
+      member.firstName, member.lastName, member.phone, member.studentId,
+      member.enrollmentNumber, member.enrollmentTrack, member.status, existingMember.id
+    ).run();
+    stats.updated++;
+  } else {
+    const now = new Date();
+    const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+    const expiresAt = member.status !== 'pending' && member.status !== 'rejected' ? `${year}-08-31` : null;
+
+    await database.prepare(`
+      INSERT INTO members (first_name, last_name, email, phone, student_id,
+        enrollment_number, enrollment_track, status, approved_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      member.firstName, member.lastName, member.email, member.phone, member.studentId,
+      member.enrollmentNumber, member.enrollmentTrack, member.status,
+      member.status !== 'pending' ? new Date().toISOString() : null, expiresAt
+    ).run();
+    stats.imported++;
+  }
+}
+
 /**
  * Import members from CSV
  * POST /api/admin/import
@@ -651,156 +762,34 @@ export const importCSV = adminOnly(async (request, env) => {
       return error('CSV must contain at least a header and one data row', 400);
     }
 
-    // Parse headers (handle both French and normalized versions)
-    const rawHeaders = parseCSVLine(lines[0]);
-    const headerMap = {};
+    const headerMap = parseCSVHeaders(parseCSVLine(lines[0]));
 
-    for (let i = 0; i < rawHeaders.length; i++) {
-      const h = rawHeaders[i].toLowerCase().trim();
-      if (h === 'prénom' || h === 'prenom' || h === 'firstname') headerMap.firstName = i;
-      else if (h === 'nom' || h === 'lastname') headerMap.lastName = i;
-      else if (h === 'email' || h === 'mail') headerMap.email = i;
-      else if (h === 'téléphone' || h === 'telephone' || h === 'phone' || h === 'tel') headerMap.phone = i;
-      else if (h === 'numéro étudiant' || h === 'numero etudiant' || h === 'n° étudiant' || h === 'student_id' || h === 'numéro' || h === 'numero') headerMap.studentId = i;
-      else if (h === 'enrollment_number') headerMap.enrollmentNumber = i;
-      else if (h === "filière d'inscription" || h === 'filiere' || h === 'track' || h === 'enrollment_track' || h === 'cursus') headerMap.enrollmentTrack = i;
-      else if (h === 'statut' || h === 'status') headerMap.status = i;
-    }
-
-    // Validate required headers
     if (headerMap.firstName === undefined || headerMap.lastName === undefined || headerMap.email === undefined) {
       return error('CSV must have Prénom, Nom, and Email columns', 400);
     }
 
-    const stats = {
-      imported: 0,
-      updated: 0,
-      skipped: 0,
-      errors: []
-    };
-
-    // Track bureau positions to prevent duplicates in same import
+    const stats = { imported: 0, updated: 0, skipped: 0, errors: [] };
     const bureauInImport = {};
 
-    // Pre-load existing bureau positions to avoid N+1 queries
-    const existingBureau = await env.DB.prepare(`
-      SELECT status, first_name, last_name, email
-      FROM members
-      WHERE status IN (${BUREAU_POSITIONS.map(() => '?').join(',')})
-    `).bind(...BUREAU_POSITIONS).all();
+    // Pre-load existing bureau positions
+    const existingBureau = await env.DB.prepare(
+      `SELECT status, first_name, last_name, email FROM members WHERE status IN (${BUREAU_POSITIONS.map(() => '?').join(',')})`
+    ).bind(...BUREAU_POSITIONS).all();
 
     const bureauMap = new Map();
-    for (const member of existingBureau.results || []) {
-      bureauMap.set(member.status, member);
+    for (const m of existingBureau.results || []) {
+      bureauMap.set(m.status, m);
     }
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
 
-      const values = parseCSVLine(line);
-
-      const firstName = values[headerMap.firstName]?.trim();
-      const lastName = values[headerMap.lastName]?.trim();
-      const email = values[headerMap.email]?.toLowerCase().trim();
-      const phone = headerMap.phone !== undefined ? values[headerMap.phone]?.trim() : null;
-      const studentId = headerMap.studentId !== undefined ? values[headerMap.studentId]?.trim() : null;
-      const enrollmentNumber = headerMap.enrollmentNumber !== undefined ? values[headerMap.enrollmentNumber]?.trim() : null;
-      const enrollmentTrack = headerMap.enrollmentTrack !== undefined ? values[headerMap.enrollmentTrack]?.trim() : 'Autre';
-      const statusLabel = headerMap.status !== undefined ? values[headerMap.status]?.trim() : null;
-      const status = mapStatusFromLabel(statusLabel);
-
-      // Validate required fields
-      if (!firstName || !lastName || !email) {
-        stats.errors.push(`Row ${i + 1}: Missing required fields`);
-        stats.skipped++;
-        continue;
-      }
-
-      // Validate email format
-      if (!isValidEmail(email)) {
-        stats.errors.push(`Row ${i + 1}: Invalid email format`);
-        stats.skipped++;
-        continue;
-      }
-
-      // Check bureau position uniqueness
-      if (BUREAU_POSITIONS.includes(status)) {
-        // Check within this import
-        if (bureauInImport[status]) {
-          stats.errors.push(`Row ${i + 1}: Role ${STATUS_LABELS[status]} already assigned in this import`);
-          stats.skipped++;
-          continue;
-        }
-
-        // Check in pre-loaded bureau map (avoids N+1 query)
-        const existing = bureauMap.get(status);
-        if (existing && existing.email !== email) {
-          stats.errors.push(`Row ${i + 1}: Role ${STATUS_LABELS[status]} already held by ${existing.first_name} ${existing.last_name}`);
-          stats.skipped++;
-          continue;
-        }
-
-        bureauInImport[status] = email;
-      }
+      const member = extractMemberFromRow(parseCSVLine(line), headerMap);
+      if (!validateImportRow(member, i + 1, bureauInImport, bureauMap, stats)) continue;
 
       try {
-        // Check if member exists
-        const existingMember = await env.DB.prepare(
-          'SELECT id FROM members WHERE email = ?'
-        ).bind(email).first();
-
-        if (existingMember) {
-          // Update existing member
-          await env.DB.prepare(`
-            UPDATE members SET
-              first_name = ?,
-              last_name = ?,
-              phone = COALESCE(?, phone),
-              student_id = COALESCE(?, student_id),
-              enrollment_number = COALESCE(?, enrollment_number),
-              enrollment_track = COALESCE(?, enrollment_track),
-              status = ?,
-              updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-          `).bind(
-            firstName,
-            lastName,
-            phone,
-            studentId,
-            enrollmentNumber,
-            enrollmentTrack,
-            status,
-            existingMember.id
-          ).run();
-
-          stats.updated++;
-        } else {
-          // Insert new member
-          const now = new Date();
-          const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
-          const expiresAt = status !== 'pending' && status !== 'rejected' ? `${year}-08-31` : null;
-
-          await env.DB.prepare(`
-            INSERT INTO members (
-              first_name, last_name, email, phone, student_id, enrollment_number,
-              enrollment_track, status, approved_at, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).bind(
-            firstName,
-            lastName,
-            email,
-            phone,
-            studentId,
-            enrollmentNumber,
-            enrollmentTrack,
-            status,
-            status !== 'pending' ? new Date().toISOString() : null,
-            expiresAt
-          ).run();
-
-          stats.imported++;
-        }
+        await importOrUpdateMember(env.DB, member, stats);
       } catch (err) {
         console.error(`Import error row ${i + 1}:`, err);
         stats.errors.push(`Row ${i + 1}: ${err.message}`);
@@ -810,12 +799,7 @@ export const importCSV = adminOnly(async (request, env) => {
 
     return json({
       success: true,
-      stats: {
-        imported: stats.imported,
-        updated: stats.updated,
-        skipped: stats.skipped,
-        total: stats.imported + stats.updated + stats.skipped
-      },
+      stats: { imported: stats.imported, updated: stats.updated, skipped: stats.skipped, total: stats.imported + stats.updated + stats.skipped },
       errors: stats.errors.length > 0 ? stats.errors.slice(0, 10) : undefined
     });
   } catch (err) {
