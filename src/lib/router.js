@@ -3,11 +3,15 @@
  * No dependencies - uses native Web APIs
  */
 
+// Maximum request body size (1MB default)
+const MAX_BODY_SIZE = 1 * 1024 * 1024;
+
 export class Router {
-  constructor(basePath = '') {
+  constructor(basePath = '', options = {}) {
     this.routes = [];
     // Normalize base path (remove trailing slash)
     this.basePath = basePath.replace(/\/$/, '');
+    this.maxBodySize = options.maxBodySize || MAX_BODY_SIZE;
   }
 
   add(method, path, handler) {
@@ -35,6 +39,17 @@ export class Router {
       const url = new URL(request.url);
       const method = request.method.toUpperCase();
       let path = url.pathname;
+
+      // Check request body size for POST/PUT requests
+      if (method === 'POST' || method === 'PUT') {
+        const contentLength = request.headers.get('Content-Length');
+        if (contentLength && parseInt(contentLength, 10) > this.maxBodySize) {
+          return new Response(
+            JSON.stringify({ error: `Request body too large. Maximum size is ${Math.round(this.maxBodySize / 1024)}KB` }),
+            { status: 413, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      }
 
       // Strip base path if present
       if (this.basePath && path.startsWith(this.basePath)) {

@@ -5,13 +5,47 @@
 import { json, error, success, csv } from '../shared/response.js';
 
 /**
- * Check admin authorization
+ * Constant-time string comparison to prevent timing attacks
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    return false;
+  }
+
+  const encoder = new TextEncoder();
+  const aBytes = encoder.encode(a);
+  const bBytes = encoder.encode(b);
+
+  // If lengths differ, compare a against itself to maintain constant time
+  if (aBytes.length !== bBytes.length) {
+    let result = 0;
+    for (let i = 0; i < aBytes.length; i++) {
+      result |= aBytes[i] ^ aBytes[i];
+    }
+    return false;
+  }
+
+  // XOR all bytes and accumulate differences
+  let result = 0;
+  for (let i = 0; i < aBytes.length; i++) {
+    result |= aBytes[i] ^ bBytes[i];
+  }
+
+  return result === 0;
+}
+
+/**
+ * Check admin authorization using constant-time comparison
  */
 function isAuthorized(request, env) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return false;
   const token = authHeader.slice(7);
-  return token === env.ADMIN_TOKEN;
+  if (!token || !env.ADMIN_TOKEN) return false;
+  return timingSafeEqual(token, env.ADMIN_TOKEN);
 }
 
 /**
@@ -230,22 +264,64 @@ export const updateMember = adminOnly(async (request, env, ctx, params) => {
         return error(`Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`, 400);
       }
 
-      // Check bureau position uniqueness
+      // For bureau positions, use atomic check-and-set to prevent race conditions
+      // This handles the case where two concurrent requests try to assign the same position
       if (BUREAU_POSITIONS.includes(body.status)) {
-        const existing = await env.DB.prepare(
-          'SELECT id, first_name, last_name FROM members WHERE status = ? AND id != ?'
-        ).bind(body.status, memberId).first();
+        // Use a subquery in UPDATE to atomically check and set
+        // The update only succeeds if no one else holds this position
+        const atomicResult = await env.DB.prepare(`
+          UPDATE members
+          SET status = ?,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+            AND NOT EXISTS (
+              SELECT 1 FROM members WHERE status = ? AND id != ?
+            )
+        `).bind(body.status, memberId, body.status, memberId).run();
 
-        if (existing) {
-          return error(
-            `Le rôle ${STATUS_LABELS[body.status]} est déjà attribué à ${existing.first_name} ${existing.last_name}`,
-            400
-          );
+        if (atomicResult.meta.changes === 0) {
+          // Either member doesn't exist or position is already taken
+          const existing = await env.DB.prepare(
+            'SELECT id, first_name, last_name FROM members WHERE status = ? AND id != ?'
+          ).bind(body.status, memberId).first();
+
+          if (existing) {
+            return error(
+              `Le rôle ${STATUS_LABELS[body.status]} est déjà attribué à ${existing.first_name} ${existing.last_name}`,
+              400
+            );
+          }
+          return error('Member not found', 404);
         }
-      }
 
-      updates.push('status = ?');
-      values.push(body.status);
+        // Status was updated atomically, now handle other fields and history
+        // Remove status from regular updates since it's already done
+        if (body.approvedAt !== undefined || body.expiresAt !== undefined ||
+            body.enrollmentNumber !== undefined || body.notes !== undefined) {
+          // Continue with other updates below
+        } else {
+          // Only status change, log and return
+          await env.DB.prepare(`
+            INSERT INTO membership_history (member_id, old_status, new_status, reason)
+            VALUES (?, ?, ?, ?)
+          `).bind(memberId, current.status, body.status, body.reason || 'Status updated by admin').run();
+
+          // Set approval date and expiry for active-like statuses
+          const activeStatuses = ['active', 'honor', ...BUREAU_POSITIONS];
+          if (activeStatuses.includes(body.status) && !activeStatuses.includes(current.status)) {
+            const now = new Date();
+            const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+            await env.DB.prepare(`
+              UPDATE members SET approved_at = CURRENT_TIMESTAMP, expires_at = ? WHERE id = ?
+            `).bind(`${year}-08-31`, memberId).run();
+          }
+
+          return success('Member updated successfully');
+        }
+      } else {
+        updates.push('status = ?');
+        values.push(body.status);
+      }
 
       // Set approval date and expiry for active-like statuses
       const activeStatuses = ['active', 'honor', ...BUREAU_POSITIONS];
@@ -339,18 +415,20 @@ export const batchUpdateMembers = adminOnly(async (request, env) => {
     }
 
     const placeholders = memberIds.map(() => '?').join(',');
-    const updates = [`status = '${status}'`, 'updated_at = CURRENT_TIMESTAMP'];
+    const updates = ['status = ?', 'updated_at = CURRENT_TIMESTAMP'];
+    const values = [status];
 
     if (status === 'active') {
       updates.push('approved_at = CURRENT_TIMESTAMP');
       const now = new Date();
       const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
-      updates.push(`expires_at = '${year}-08-31'`);
+      updates.push('expires_at = ?');
+      values.push(`${year}-08-31`);
     }
 
     await env.DB.prepare(`
       UPDATE members SET ${updates.join(', ')} WHERE id IN (${placeholders})
-    `).bind(...memberIds).run();
+    `).bind(...values, ...memberIds).run();
 
     // Log changes
     for (const id of memberIds) {
@@ -413,7 +491,15 @@ export const exportMembers = adminOnly(async (request, env) => {
       m.created_at,
       m.approved_at || '',
       m.expires_at || ''
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+    ].map(v => {
+      let str = String(v).replace(/"/g, '""');
+      // Escape formula injection characters to prevent CSV injection attacks
+      // Include pipe (|) for DDE attacks and semicolon (;) for localized formulas
+      if (/^[=+\-@\t\r|;]/.test(str)) {
+        str = "'" + str;
+      }
+      return `"${str}"`;
+    }).join(','));
 
     const csvContent = [headers.join(','), ...rows].join('\n');
     const filename = status ? `members_${status}.csv` : 'members.csv';
@@ -584,6 +670,18 @@ export const importCSV = adminOnly(async (request, env) => {
     // Track bureau positions to prevent duplicates in same import
     const bureauInImport = {};
 
+    // Pre-load existing bureau positions to avoid N+1 queries
+    const existingBureau = await env.DB.prepare(`
+      SELECT status, first_name, last_name, email
+      FROM members
+      WHERE status IN (${BUREAU_POSITIONS.map(() => '?').join(',')})
+    `).bind(...BUREAU_POSITIONS).all();
+
+    const bureauMap = new Map();
+    for (const member of existingBureau.results || []) {
+      bureauMap.set(member.status, member);
+    }
+
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
@@ -623,12 +721,9 @@ export const importCSV = adminOnly(async (request, env) => {
           continue;
         }
 
-        // Check in database
-        const existing = await env.DB.prepare(
-          'SELECT id, first_name, last_name FROM members WHERE status = ? AND email != ?'
-        ).bind(status, email).first();
-
-        if (existing) {
+        // Check in pre-loaded bureau map (avoids N+1 query)
+        const existing = bureauMap.get(status);
+        if (existing && existing.email !== email) {
           stats.errors.push(`Row ${i + 1}: Role ${STATUS_LABELS[status]} already held by ${existing.first_name} ${existing.last_name}`);
           stats.skipped++;
           continue;
