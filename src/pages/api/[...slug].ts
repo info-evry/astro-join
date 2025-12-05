@@ -9,9 +9,30 @@ import { createRouter } from '../../routes.js';
 
 const router = createRouter();
 
-// Get CORS origin from request header
+// Allowed origins for CORS - add development origins as needed
+const ALLOWED_ORIGINS = [
+  'https://asso.info-evry.fr',
+  'http://localhost:4321',
+  'http://localhost:3000',
+  'http://127.0.0.1:4321',
+  'http://127.0.0.1:3000'
+];
+
+// Get validated CORS origin from request header
 function getCorsOrigin(request: Request): string {
-  return request.headers.get('Origin') || new URL(request.url).origin;
+  const origin = request.headers.get('Origin');
+  // Only allow whitelisted origins
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    return origin;
+  }
+  // For same-origin requests (no Origin header), use the request URL origin
+  // This is safe because the browser enforces Origin header for cross-origin requests
+  if (!origin) {
+    return new URL(request.url).origin;
+  }
+  // Reject unknown origins by returning the first allowed origin
+  // This prevents reflecting arbitrary origins
+  return ALLOWED_ORIGINS[0];
 }
 
 export const ALL: APIRoute = async ({ request, locals }) => {
