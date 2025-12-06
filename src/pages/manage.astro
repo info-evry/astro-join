@@ -1,22 +1,14 @@
 ---
 import AdminLayout from '../layouts/AdminLayout.astro';
+import AdminPageHeader from 'astro-design/components/admin/AdminPageHeader.astro';
 ---
 
-<AdminLayout title="Gestion des adhésions - Asso Info Evry">
-  <!-- Admin Hero Header -->
-  <section class="page-hero">
-    <div class="page-hero-bg">
-      <div class="orb orb-blue"></div>
-      <div class="orb orb-indigo"></div>
-    </div>
-    <div class="page-hero-content container">
-      <h1 class="page-hero-title">
-        <span>Gestion des</span>
-        <span class="gradient-text">Adhésions</span>
-      </h1>
-      <p class="page-hero-subtitle">Administration des membres de l'association</p>
-    </div>
-  </section>
+<AdminLayout title="Gestion des adhesions - Asso Info Evry">
+  <AdminPageHeader
+    title="Gestion des Adhesions"
+    subtitle="Administration des membres de l'association"
+    breadcrumb="Asso Info Evry"
+  />
 
   <main class="container-wide admin">
     <!-- Auth Section -->
