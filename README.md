@@ -58,6 +58,7 @@ astro-join/
 ├── db/
 │   ├── schema.sql            # Database schema
 │   └── migrate-*.sql         # Migrations
+├── core/                     # Shared code library (submodule)
 ├── design/                   # Shared design system (submodule)
 ├── knowledge/                # Shared content (submodule)
 ├── test/                     # API tests
@@ -186,6 +187,7 @@ wrangler secret put ADMIN_TOKEN
 
 ## Related Repositories
 
+- [astro-core](https://github.com/info-evry/astro-core) - Shared code library (Router, helpers)
 - [astro-design](https://github.com/info-evry/astro-design) - Shared design system
 - [astro-knowledge](https://github.com/info-evry/astro-knowledge) - Shared content
 - [astro-asso](https://github.com/info-evry/astro-asso) - Association website

@@ -18,7 +18,7 @@
     "@astrojs/cloudflare": "^12.6.12"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "0.5.41",
+    "@cloudflare/vitest-pool-workers": "^0.10.14",
     "@vitest/coverage-v8": "2.1.9",
     "vitest": "2.1.9",
     "wrangler": "^4.51.0"
