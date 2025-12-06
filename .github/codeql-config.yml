@@ -1,0 +1,7 @@
+# CodeQL configuration - maestro handles centralized CI/CD
+# This config disables actions language scanning since we have no workflow files
+name: "CodeQL Config"
+queries:
+  - uses: security-and-quality
+languages:
+  - javascript-typescript
