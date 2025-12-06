@@ -14,13 +14,13 @@
   "author": "Asso Info Evry",
   "license": "AGPL-3.0-only",
   "dependencies": {
-    "astro": "^5.16.2",
+    "astro": "^5.16.4",
     "@astrojs/cloudflare": "^12.6.12"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.10.14",
     "@vitest/coverage-v8": "2.1.9",
     "vitest": "2.1.9",
-    "wrangler": "^4.51.0"
+    "wrangler": "^4.53.0"
   }
 }
