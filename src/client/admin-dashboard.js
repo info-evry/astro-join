@@ -137,6 +137,33 @@ export function toggleDisclosure(name) {
   if (group) group.classList.toggle('open');
 }
 
+/**
+ * Switch to a specific tab
+ * @param {string} tabName - Tab name to switch to
+ */
+export function switchTab(tabName) {
+  // Update sidebar buttons
+  document.querySelectorAll('.admin-sidebar-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+
+  // Update tab panels
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.classList.toggle('hidden', panel.id !== `panel-${tabName}`);
+  });
+}
+
+/**
+ * Initialize sidebar navigation
+ */
+function initSidebar() {
+  document.querySelectorAll('.admin-sidebar-item[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      switchTab(btn.dataset.tab);
+    });
+  });
+}
+
 // ============================================================
 // SORTING
 // ============================================================
@@ -972,6 +999,9 @@ function getElements() {
 
 export async function initAdminDashboard() {
   const elements = getElements();
+
+  // Initialize sidebar navigation
+  initSidebar();
 
   elements.authBtn.addEventListener('click', handleAuth);
   elements.tokenInput.addEventListener('keypress', e => {

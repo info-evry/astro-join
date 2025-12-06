@@ -30,51 +30,62 @@ import AdminLayout from '../layouts/AdminLayout.astro';
       <p id="auth-error" class="error-text hidden"></p>
     </section>
 
-    <!-- Admin Content -->
-    <div id="admin-content" class="hidden">
-      <!-- Stats Section -->
-      <div class="disclosure-group open" data-disclosure="stats">
-        <div class="disclosure-header" onclick="window.adminDashboard.toggleDisclosure('stats')">
-          <h2><span class="disclosure-chevron">􀆊</span> Vue d'ensemble</h2>
-          <div class="header-actions" onclick="event.stopPropagation()">
-            <button type="button" id="export-btn" class="btn btn-secondary btn-sm">Exporter CSV</button>
-            <button type="button" id="refresh-btn" class="btn btn-secondary btn-sm">Rafraîchir</button>
+    <!-- Admin Content with Sidebar -->
+    <div id="admin-content" class="hidden admin-layout">
+      <!-- Sidebar Navigation -->
+      <nav class="admin-sidebar" id="admin-sidebar">
+        <ul class="admin-sidebar-nav">
+          <li>
+            <button type="button" class="admin-sidebar-item active" data-tab="members">
+              <span class="admin-sidebar-icon sf-symbol">@sfs:person.2@</span>
+              <span class="admin-sidebar-label">Membres</span>
+              <span id="members-badge" class="admin-sidebar-badge">0</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="admin-sidebar-item" data-tab="pending">
+              <span class="admin-sidebar-icon sf-symbol">@sfs:person.badge.clock@</span>
+              <span class="admin-sidebar-label">En attente</span>
+              <span id="pending-badge" class="admin-sidebar-badge">0</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="admin-sidebar-item" data-tab="bureau">
+              <span class="admin-sidebar-icon sf-symbol">@sfs:person.3@</span>
+              <span class="admin-sidebar-label">Bureau</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="admin-sidebar-item" data-tab="import">
+              <span class="admin-sidebar-icon sf-symbol">@sfs:square.and.arrow.down@</span>
+              <span class="admin-sidebar-label">Import</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="admin-sidebar-item" data-tab="settings">
+              <span class="admin-sidebar-icon sf-symbol">@sfs:gear@</span>
+              <span class="admin-sidebar-label">Paramètres</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Main Content Area -->
+      <div class="admin-main">
+        <!-- Members Tab (Stats + All Members) -->
+        <div id="panel-members" class="tab-panel" role="tabpanel" aria-labelledby="tab-members">
+          <div class="settings-header">
+            <h2>Membres</h2>
+            <div class="header-actions">
+              <button type="button" id="export-btn" class="btn btn-secondary btn-sm">Exporter CSV</button>
+              <button type="button" id="refresh-btn" class="btn btn-secondary btn-sm">Rafraîchir</button>
+            </div>
           </div>
-        </div>
-        <div class="disclosure-body">
-          <div id="stats-grid" class="stats-grid"></div>
-        </div>
-      </div>
 
-      <!-- Bureau Section -->
-      <div class="disclosure-group open" data-disclosure="bureau">
-        <div class="disclosure-header" onclick="window.adminDashboard.toggleDisclosure('bureau')">
-          <h2><span class="disclosure-chevron">􀆊</span> Bureau</h2>
-        </div>
-        <div class="disclosure-body">
-          <div id="bureau-container"></div>
-        </div>
-      </div>
+          <!-- Stats Grid -->
+          <div id="stats-grid" class="stats-grid" style="margin-bottom: var(--space-6);"></div>
 
-      <!-- Pending Applications -->
-      <div class="disclosure-group open" data-disclosure="pending">
-        <div class="disclosure-header" onclick="window.adminDashboard.toggleDisclosure('pending')">
-          <h2><span class="disclosure-chevron">􀆊</span> Demandes en attente <span id="pending-badge" class="disclosure-badge">0</span></h2>
-          <div class="header-actions" onclick="event.stopPropagation()">
-            <button type="button" id="approve-all-btn" class="btn btn-primary btn-sm" disabled>Tout approuver</button>
-          </div>
-        </div>
-        <div class="disclosure-body">
-          <div id="pending-container" class="table-container"></div>
-        </div>
-      </div>
-
-      <!-- All Members -->
-      <div class="disclosure-group open" data-disclosure="members">
-        <div class="disclosure-header" onclick="window.adminDashboard.toggleDisclosure('members')">
-          <h2><span class="disclosure-chevron">􀆊</span> Tous les membres <span id="members-badge" class="disclosure-badge">0</span></h2>
-        </div>
-        <div class="disclosure-body">
+          <!-- Members List -->
           <div class="members-toolbar">
             <div class="filters-row">
               <input type="search" id="filter-search" class="filter-search" placeholder="Rechercher (nom, email, n° étudiant...)">
@@ -103,14 +114,31 @@ import AdminLayout from '../layouts/AdminLayout.astro';
           </div>
           <div id="members-container" class="table-container"></div>
         </div>
-      </div>
 
-      <!-- Import Section -->
-      <div class="disclosure-group" data-disclosure="import">
-        <div class="disclosure-header" onclick="window.adminDashboard.toggleDisclosure('import')">
-          <h2><span class="disclosure-chevron">􀆊</span> Importer des membres</h2>
+        <!-- Pending Tab -->
+        <div id="panel-pending" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-pending">
+          <div class="settings-header">
+            <h2>Demandes en attente</h2>
+            <div class="header-actions">
+              <button type="button" id="approve-all-btn" class="btn btn-primary btn-sm" disabled>Tout approuver</button>
+            </div>
+          </div>
+          <div id="pending-container" class="table-container"></div>
         </div>
-        <div class="disclosure-body">
+
+        <!-- Bureau Tab -->
+        <div id="panel-bureau" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-bureau">
+          <div class="settings-header">
+            <h2>Bureau</h2>
+          </div>
+          <div id="bureau-container"></div>
+        </div>
+
+        <!-- Import Tab -->
+        <div id="panel-import" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-import">
+          <div class="settings-header">
+            <h2>Importer des membres</h2>
+          </div>
           <div class="settings-card">
             <h3>Import CSV</h3>
             <p style="margin-bottom: var(--space-3); color: var(--color-text-muted);">
@@ -130,17 +158,15 @@ import AdminLayout from '../layouts/AdminLayout.astro';
             <div id="import-result" class="hidden" style="margin-top: var(--space-4);"></div>
           </div>
         </div>
-      </div>
 
-      <!-- Settings Section -->
-      <div class="disclosure-group" data-disclosure="settings">
-        <div class="disclosure-header" onclick="window.adminDashboard.toggleDisclosure('settings')">
-          <h2><span class="disclosure-chevron">􀆊</span> Paramètres</h2>
-          <div class="header-actions" onclick="event.stopPropagation()">
-            <button type="button" id="save-settings-btn" class="btn btn-primary btn-sm" disabled>Enregistrer</button>
+        <!-- Settings Tab -->
+        <div id="panel-settings" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-settings">
+          <div class="settings-header">
+            <h2>Paramètres</h2>
+            <div class="header-actions">
+              <button type="button" id="save-settings-btn" class="btn btn-primary btn-sm" disabled>Enregistrer</button>
+            </div>
           </div>
-        </div>
-        <div class="disclosure-body">
           <div class="settings-card">
             <h3>Inscriptions</h3>
             <div class="form-group">
@@ -245,7 +271,7 @@ import AdminLayout from '../layouts/AdminLayout.astro';
 
 <meta name="base-url" content={import.meta.env.BASE_URL} />
 
-<script type="module">
+<script>
 import * as adminDashboard from '../client/admin-dashboard.js';
 
 // Export to window for onclick handlers
@@ -373,6 +399,74 @@ small.text-muted {
   background-color: rgba(0, 27, 165, 0.1);
 }
 
+/* Bureau grid */
+.bureau-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+.bureau-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.bureau-role {
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.bureau-name {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.bureau-email a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.bureau-email a:hover {
+  color: var(--color-primary);
+}
+
+.bureau-actions {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Settings card */
+.settings-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.settings-card:last-child {
+  margin-bottom: 0;
+}
+
+.settings-card h3 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+/* Header actions */
+.header-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
 @media (max-width: 768px) {
   .filters-row {
     flex-direction: column;
@@ -386,6 +480,10 @@ small.text-muted {
   .bulk-actions {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .bureau-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
