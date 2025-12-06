@@ -10,11 +10,10 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   test:
-    name: Test
+    name: Build & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Create wrangler.toml for testing
+      - name: Create wrangler.toml
         run: |
           cat > wrangler.toml << 'EOF'
           name = "join-info-evry"
@@ -50,30 +49,8 @@ jobs:
       - name: Run tests
         run: bunx vitest run
 
-  sonarcloud:
-    name: SonarCloud Analysis
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.organization=info-evry
-            -Dsonar.projectKey=info-evry_astro-join
-            -Dsonar.sources=src
-            -Dsonar.tests=test
-            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/design/**,**/knowledge/**
-
   snyk:
-    name: Snyk Security Scan
+    name: Security Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,3 +72,21 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high
+
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install and audit
+        run: |
+          bun install
+          bun audit || echo "::warning::Vulnerabilities found"
