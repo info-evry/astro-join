@@ -2,7 +2,7 @@
  * Membership application endpoint
  */
 
-import { error, success } from '../shared/response.js';
+import { error, success } from '../lib/router.js';
 
 /**
  * Submit a membership application

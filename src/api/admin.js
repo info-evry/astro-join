@@ -2,19 +2,8 @@
  * Admin API endpoints for membership management
  */
 
-import { json, error, success, csv } from '../shared/response.js';
-
-/**
- * Validate email format without ReDoS-vulnerable regex
- * @param {string} email
- * @returns {boolean}
- */
-function isValidEmail(email) {
-  if (!email || typeof email !== 'string' || email.length > 254) return false;
-  const atIndex = email.indexOf('@');
-  const dotIndex = email.lastIndexOf('.');
-  return atIndex > 0 && dotIndex > atIndex + 1 && dotIndex < email.length - 1 && !email.includes(' ');
-}
+import { json, error, success, csv } from '../lib/router.js';
+import { isValidEmail } from '../lib/validation.js';
 
 /**
  * Constant-time string comparison to prevent timing attacks

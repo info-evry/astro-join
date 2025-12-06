@@ -2,7 +2,7 @@
  * Public member endpoints
  */
 
-import { json, error } from '../shared/response.js';
+import { json, error } from '../lib/router.js';
 
 /**
  * Get membership settings/config
