@@ -9,9 +9,15 @@ import { createRouter } from '../../routes.js';
 
 const router = createRouter();
 
-// Allowed origins for CORS - add development origins as needed
+// Allowed origins for CORS - production and development origins
 const ALLOWED_ORIGINS = [
+  // Production
   'https://asso.info-evry.fr',
+  // Development (Cloudflare Workers)
+  'https://ndi-registration-dev.asso-1b5.workers.dev',
+  'https://asso-info-evry-dev.asso-1b5.workers.dev',
+  'https://join-info-evry-dev.asso-1b5.workers.dev',
+  // Local development
   'http://localhost:4321',
   'http://localhost:3000',
   'http://127.0.0.1:4321',
