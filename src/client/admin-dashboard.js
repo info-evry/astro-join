@@ -143,25 +143,25 @@ export function toggleDisclosure(name) {
  */
 export function switchTab(tabName) {
   // Update sidebar buttons
-  document.querySelectorAll('.admin-sidebar-item').forEach(btn => {
+  for (const btn of document.querySelectorAll('.admin-sidebar-item')) {
     btn.classList.toggle('active', btn.dataset.tab === tabName);
-  });
+  }
 
   // Update tab panels
-  document.querySelectorAll('.tab-panel').forEach(panel => {
+  for (const panel of document.querySelectorAll('.tab-panel')) {
     panel.classList.toggle('hidden', panel.id !== `panel-${tabName}`);
-  });
+  }
 }
 
 /**
  * Initialize sidebar navigation
  */
 function initSidebar() {
-  document.querySelectorAll('.admin-sidebar-item[data-tab]').forEach(btn => {
+  for (const btn of document.querySelectorAll('.admin-sidebar-item[data-tab]')) {
     btn.addEventListener('click', () => {
       switchTab(btn.dataset.tab);
     });
-  });
+  }
 }
 
 // ============================================================
