@@ -148,7 +148,7 @@ describe('Router', () => {
   describe('base path handling', () => {
     it('should strip base path from request', async () => {
       const router = new Router('/api');
-      router.get('/users', (req, env, ctx, params) => new Response('users'));
+      router.get('/users', () => new Response('users'));
 
       const request = new Request('http://localhost/api/users');
       const response = await router.handle(request, {}, {});
@@ -252,7 +252,7 @@ describe('corsHeaders', () => {
 
   it('should throw error when origin is not specified', () => {
     expect(() => corsHeaders(null)).toThrow();
-    expect(() => corsHeaders(undefined)).toThrow();
+    expect(() => corsHeaders()).toThrow();
     expect(() => corsHeaders('')).toThrow();
   });
 

@@ -140,8 +140,8 @@ export const getMembers = adminOnly(async (request, env) => {
         expired: stats?.expired || 0
       }
     });
-  } catch (err) {
-    console.error('Get members error:', err);
+  } catch (error_) {
+    console.error('Get members error:', error_);
     return error('Failed to load members', 500);
   }
 });
@@ -210,8 +210,8 @@ export const adminStats = adminOnly(async (request, env) => {
       statusLabels: STATUS_LABELS,
       validStatuses: VALID_STATUSES
     });
-  } catch (err) {
-    console.error('Admin stats error:', err);
+  } catch (error_) {
+    console.error('Admin stats error:', error_);
     return error('Failed to load stats', 500);
   }
 });
@@ -372,8 +372,8 @@ export const updateMember = adminOnly(async (request, env, ctx, params) => {
     await logStatusChange(env.DB, memberId, body, current);
 
     return success('Member updated successfully');
-  } catch (err) {
-    console.error('Update member error:', err);
+  } catch (error_) {
+    console.error('Update member error:', error_);
     return error('Failed to update member', 500);
   }
 });
@@ -395,8 +395,8 @@ export const deleteMember = adminOnly(async (request, env, ctx, params) => {
     }
 
     return success('Member deleted successfully');
-  } catch (err) {
-    console.error('Delete member error:', err);
+  } catch (error_) {
+    console.error('Delete member error:', error_);
     return error('Failed to delete member', 500);
   }
 });
@@ -442,8 +442,8 @@ export const batchUpdateMembers = adminOnly(async (request, env) => {
     }
 
     return success(`${memberIds.length} member(s) updated successfully`);
-  } catch (err) {
-    console.error('Batch update error:', err);
+  } catch (error_) {
+    console.error('Batch update error:', error_);
     return error('Failed to update members', 500);
   }
 });
@@ -508,8 +508,8 @@ export const exportMembers = adminOnly(async (request, env) => {
     const filename = status ? `members_${status}.csv` : 'members.csv';
 
     return csv(csvContent, filename);
-  } catch (err) {
-    console.error('Export error:', err);
+  } catch (error_) {
+    console.error('Export error:', error_);
     return error('Failed to export members', 500);
   }
 });
@@ -534,8 +534,8 @@ export const getSettings = adminOnly(async (request, env) => {
     }
 
     return json({ settings: config });
-  } catch (err) {
-    console.error('Get settings error:', err);
+  } catch (error_) {
+    console.error('Get settings error:', error_);
     return error('Failed to load settings', 500);
   }
 });
@@ -557,8 +557,8 @@ export const updateSettings = adminOnly(async (request, env) => {
     }
 
     return success('Settings updated successfully');
-  } catch (err) {
-    console.error('Update settings error:', err);
+  } catch (error_) {
+    console.error('Update settings error:', error_);
     return error('Failed to update settings', 500);
   }
 });
@@ -789,9 +789,9 @@ export const importCSV = adminOnly(async (request, env) => {
 
       try {
         await importOrUpdateMember(env.DB, member, stats);
-      } catch (err) {
-        console.error(`Import error row ${i + 1}:`, err);
-        stats.errors.push(`Row ${i + 1}: ${err.message}`);
+      } catch (error_) {
+        console.error(`Import error row ${i + 1}:`, error_);
+        stats.errors.push(`Row ${i + 1}: ${error_.message}`);
         stats.skipped++;
       }
     }
@@ -801,8 +801,8 @@ export const importCSV = adminOnly(async (request, env) => {
       stats: { imported: stats.imported, updated: stats.updated, skipped: stats.skipped, total: stats.imported + stats.updated + stats.skipped },
       errors: stats.errors.length > 0 ? stats.errors.slice(0, 10) : undefined
     });
-  } catch (err) {
-    console.error('Import CSV error:', err);
-    return error('Failed to import CSV: ' + err.message, 500);
+  } catch (error_) {
+    console.error('Import CSV error:', error_);
+    return error('Failed to import CSV: ' + error_.message, 500);
   }
 });

@@ -72,8 +72,8 @@ export async function apply(request, env) {
       { memberId: result.meta.last_row_id }
     );
 
-  } catch (err) {
-    console.error('Application error:', err);
+  } catch (error_) {
+    console.error('Application error:', error_);
     return error('Une erreur est survenue. Veuillez réessayer.', 500);
   }
 }

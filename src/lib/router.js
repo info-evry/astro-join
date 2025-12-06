@@ -19,7 +19,7 @@ export class Router {
     // Escape backslashes first, then forward slashes, then convert :params
     const pattern = path
       .replaceAll('\\', '\\\\')
-      .replaceAll('/', '\\/')
+      .replaceAll('/', String.raw`\/`)
       .replaceAll(/:(\w+)/g, '(?<$1>[^/]+)');
     this.routes.push({
       method: method.toUpperCase(),
@@ -65,8 +65,8 @@ export class Router {
         }
       }
       return new Response('Not Found', {status: 404}); // No route matched
-    } catch (err) {
-      console.error('Router error:', err);
+    } catch (error) {
+      console.error('Router error:', error);
       return new Response(
         'Internal Server Error',
         {

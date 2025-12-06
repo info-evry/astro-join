@@ -38,8 +38,8 @@ export async function getConfig(request, env) {
         ]
       }
     });
-  } catch (err) {
-    console.error('Config error:', err);
+  } catch (error_) {
+    console.error('Config error:', error_);
     return error('Failed to load configuration', 500);
   }
 }
@@ -63,8 +63,8 @@ export async function getStats(request, env) {
         pendingApplications: stats?.pending_applications || 0
       }
     });
-  } catch (err) {
-    console.error('Stats error:', err);
+  } catch (error_) {
+    console.error('Stats error:', error_);
     return error('Failed to load stats', 500);
   }
 }
