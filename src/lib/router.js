@@ -18,9 +18,9 @@ export class Router {
     // Convert path pattern to regex
     // Escape backslashes first, then forward slashes, then convert :params
     const pattern = path
-      .replace(/\\/g, '\\\\')
-      .replace(/\//g, '\\/')
-      .replace(/:(\w+)/g, '(?<$1>[^/]+)');
+      .replaceAll('\\', '\\\\')
+      .replaceAll('/', '\\/')
+      .replaceAll(/:(\w+)/g, '(?<$1>[^/]+)');
     this.routes.push({
       method: method.toUpperCase(),
       pattern: new RegExp(`^${pattern}$`),
@@ -43,7 +43,7 @@ export class Router {
       // Check request body size for POST/PUT requests
       if (method === 'POST' || method === 'PUT') {
         const contentLength = request.headers.get('Content-Length');
-        if (contentLength && parseInt(contentLength, 10) > this.maxBodySize) {
+        if (contentLength && Number.parseInt(contentLength, 10) > this.maxBodySize) {
           return new Response(
             JSON.stringify({ error: `Request body too large. Maximum size is ${Math.round(this.maxBodySize / 1024)}KB` }),
             { status: 413, headers: { 'Content-Type': 'application/json' } }

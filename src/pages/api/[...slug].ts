@@ -53,7 +53,7 @@ export const ALL: APIRoute = async ({ request, locals }) => {
     if (response) {
       // Add CORS headers to all API responses
       const headers = new Headers(response.headers);
-      Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+      for (const [k, v] of Object.entries(corsHeaders(origin))) headers.set(k, v);
       return new Response(response.body, {
         status: response.status,
         headers

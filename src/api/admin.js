@@ -34,16 +34,16 @@ function timingSafeEqual(a, b) {
   // If lengths differ, compare a against itself to maintain constant time
   if (aBytes.length !== bBytes.length) {
     let _unused = 0;
-    for (let i = 0; i < aBytes.length; i++) {
-      _unused |= aBytes[i] ^ aBytes[i];
+    for (const aByte of aBytes) {
+      _unused |= aByte ^ aByte;
     }
     return false;
   }
 
   // XOR all bytes and accumulate differences
   let result = 0;
-  for (let i = 0; i < aBytes.length; i++) {
-    result |= aBytes[i] ^ bBytes[i];
+  for (const [i, aByte] of aBytes.entries()) {
+    result |= aByte ^ bBytes[i];
   }
 
   return result === 0;
@@ -279,8 +279,8 @@ async function handleBureauStatusUpdate(database, memberId, newStatus, currentSt
  * Set approval date and expiry for active-like statuses
  */
 async function setApprovalDates(database, memberId, newStatus, currentStatus, updates, values) {
-  const activeStatuses = ['active', 'honor', ...BUREAU_POSITIONS];
-  if (activeStatuses.includes(newStatus) && !activeStatuses.includes(currentStatus)) {
+  const activeStatuses = new Set(['active', 'honor', ...BUREAU_POSITIONS]);
+  if (activeStatuses.has(newStatus) && !activeStatuses.has(currentStatus)) {
     const now = new Date();
     const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
 
@@ -343,7 +343,7 @@ async function logStatusChange(database, memberId, body, current) {
  */
 export const updateMember = adminOnly(async (request, env, ctx, params) => {
   try {
-    const memberId = parseInt(params.id);
+    const memberId = Number.parseInt(params.id);
     const body = await request.json();
 
     const current = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(memberId).first();
@@ -384,7 +384,7 @@ export const updateMember = adminOnly(async (request, env, ctx, params) => {
  */
 export const deleteMember = adminOnly(async (request, env, ctx, params) => {
   try {
-    const memberId = parseInt(params.id);
+    const memberId = Number.parseInt(params.id);
 
     const result = await env.DB.prepare(
       'DELETE FROM members WHERE id = ?'
@@ -495,7 +495,7 @@ export const exportMembers = adminOnly(async (request, env) => {
       m.approved_at || '',
       m.expires_at || ''
     ].map(v => {
-      let str = String(v).replace(/"/g, '""');
+      let str = String(v).replaceAll('"', '""');
       // Escape formula injection characters to prevent CSV injection attacks
       // Include pipe (|) for DDE attacks and semicolon (;) for localized formulas
       if (/^[=+\-@\t\r|;]/.test(str)) {
@@ -571,8 +571,7 @@ function parseCSVLine(line) {
   let current = '';
   let inQuotes = false;
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+  for (const char of line) {
     if (char === '"') {
       inQuotes = !inQuotes;
     } else if ((char === ',' || char === '\t' || char === ';') && !inQuotes) {
@@ -640,8 +639,8 @@ const HEADER_MAPPINGS = {
  */
 function parseCSVHeaders(rawHeaders) {
   const headerMap = {};
-  for (let i = 0; i < rawHeaders.length; i++) {
-    const h = rawHeaders[i].toLowerCase().trim();
+  for (const [i, rawHeader] of rawHeaders.entries()) {
+    const h = rawHeader.toLowerCase().trim();
     for (const [field, aliases] of Object.entries(HEADER_MAPPINGS)) {
       if (aliases.includes(h)) {
         headerMap[field] = i;
@@ -660,11 +659,11 @@ function extractMemberFromRow(values, headerMap) {
     firstName: values[headerMap.firstName]?.trim(),
     lastName: values[headerMap.lastName]?.trim(),
     email: values[headerMap.email]?.toLowerCase().trim(),
-    phone: headerMap.phone !== undefined ? values[headerMap.phone]?.trim() : null,
-    studentId: headerMap.studentId !== undefined ? values[headerMap.studentId]?.trim() : null,
-    enrollmentNumber: headerMap.enrollmentNumber !== undefined ? values[headerMap.enrollmentNumber]?.trim() : null,
-    enrollmentTrack: headerMap.enrollmentTrack !== undefined ? values[headerMap.enrollmentTrack]?.trim() : 'Autre',
-    status: mapStatusFromLabel(headerMap.status !== undefined ? values[headerMap.status]?.trim() : null)
+    phone: headerMap.phone === undefined ? null : values[headerMap.phone]?.trim(),
+    studentId: headerMap.studentId === undefined ? null : values[headerMap.studentId]?.trim(),
+    enrollmentNumber: headerMap.enrollmentNumber === undefined ? null : values[headerMap.enrollmentNumber]?.trim(),
+    enrollmentTrack: headerMap.enrollmentTrack === undefined ? 'Autre' : values[headerMap.enrollmentTrack]?.trim(),
+    status: mapStatusFromLabel(headerMap.status === undefined ? null : values[headerMap.status]?.trim())
   };
 }
 
@@ -737,7 +736,7 @@ async function importOrUpdateMember(database, member, stats) {
     `).bind(
       member.firstName, member.lastName, member.email, member.phone, member.studentId,
       member.enrollmentNumber, member.enrollmentTrack, member.status,
-      member.status !== 'pending' ? new Date().toISOString() : null, expiresAt
+      member.status === 'pending' ? null : new Date().toISOString(), expiresAt
     ).run();
     stats.imported++;
   }
