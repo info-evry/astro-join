@@ -336,134 +336,15 @@ import computed from '../../knowledge/src/computed.json';
   }
 </style>
 
-<script define:vars={{ baseUrl: import.meta.env.BASE_URL }}>
-/**
- * Membership Application Form
- */
+<meta name="base-url" content={import.meta.env.BASE_URL} />
 
-// API base URL (from Astro's BASE_URL)
-const API_BASE = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+<script type="module">
+import { initMembershipForm } from '../client/membership-form.js';
 
-const elements = {
-  form: document.getElementById('membership-form'),
-  errorsDiv: document.getElementById('form-errors'),
-  submitBtn: document.getElementById('submit-btn'),
-  successModal: document.getElementById('success-modal'),
-  successMessage: document.getElementById('success-message')
-};
-
-// API Functions
-async function api(endpoint, options = {}) {
-  const response = await fetch(`${API_BASE}/api${endpoint}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Request failed');
-  return data;
+// Initialize form when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMembershipForm);
+} else {
+  initMembershipForm();
 }
-
-// Form Handling
-function collectFormData() {
-  const formData = new FormData(elements.form);
-  return {
-    firstName: formData.get('firstName')?.toString().trim() || '',
-    lastName: formData.get('lastName')?.toString().trim() || '',
-    email: formData.get('email')?.toString().trim() || '',
-    studentId: formData.get('studentId')?.toString().trim() || '',
-    enrollmentTrack: formData.get('enrollmentTrack')?.toString() || '',
-    phone: formData.get('phone')?.toString().trim() || '',
-    telegram: formData.get('telegram')?.toString().trim() || '',
-    discord: formData.get('discord')?.toString().trim() || ''
-  };
-}
-
-function validateForm(data) {
-  const errors = [];
-
-  if (!data.firstName) errors.push('Le prénom est requis');
-  if (!data.lastName) errors.push('Le nom est requis');
-  if (!data.email) errors.push("L'email est requis");
-  else if (!isValidEmail(data.email)) errors.push("L'email est invalide");
-  if (!data.enrollmentTrack) errors.push('Le cursus est requis');
-
-  // At least one contact method required
-  if (!data.phone && !data.telegram && !data.discord) {
-    errors.push('Au moins un moyen de contact est requis (téléphone, Telegram ou Discord)');
-  }
-
-  return errors;
-}
-
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function showErrors(errors) {
-  elements.errorsDiv.innerHTML = `<ul>${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`;
-  elements.errorsDiv.classList.remove('hidden');
-  elements.errorsDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function hideErrors() {
-  elements.errorsDiv.classList.add('hidden');
-}
-
-function setLoading(loading) {
-  elements.submitBtn.disabled = loading;
-  elements.submitBtn.textContent = loading ? 'Envoi en cours...' : 'Envoyer ma demande';
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-async function handleSubmit(e) {
-  e.preventDefault();
-
-  const data = collectFormData();
-  const errors = validateForm(data);
-
-  if (errors.length > 0) {
-    showErrors(errors);
-    return;
-  }
-
-  hideErrors();
-  setLoading(true);
-
-  try {
-    const result = await api('/apply', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-
-    elements.successMessage.textContent = result.message || 'Votre demande d\'adhésion a bien été enregistrée.';
-    elements.successModal.classList.remove('hidden');
-
-  } catch (err) {
-    showErrors([err.message]);
-  } finally {
-    setLoading(false);
-  }
-}
-
-// Event Listeners
-elements.form.addEventListener('submit', handleSubmit);
-
-// Close modal on backdrop click or Escape
-elements.successModal.addEventListener('click', (e) => {
-  if (e.target === elements.successModal) {
-    location.reload();
-  }
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !elements.successModal.classList.contains('hidden')) {
-    location.reload();
-  }
-});
 </script>
