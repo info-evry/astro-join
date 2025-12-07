@@ -146,7 +146,7 @@ async function handleSubmit(e, elements) {
 /**
  * Initialize the membership form
  */
-export function initMembershipForm() {
+function initMembershipForm() {
   const elements = {
     form: document.getElementById('membership-form'),
     errorsDiv: document.getElementById('form-errors'),
@@ -175,4 +175,11 @@ export function initMembershipForm() {
       location.reload();
     }
   });
+}
+
+// Auto-initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMembershipForm);
+} else {
+  initMembershipForm();
 }

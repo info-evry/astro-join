@@ -338,13 +338,6 @@ import computed from '../../knowledge/src/computed.json';
 
 <meta name="base-url" content={import.meta.env.BASE_URL} />
 
-<script type="module">
-import { initMembershipForm } from '../client/membership-form.js';
-
-// Initialize form when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initMembershipForm);
-} else {
-  initMembershipForm();
-}
+<script>
+import '../client/membership-form.js';
 </script>
