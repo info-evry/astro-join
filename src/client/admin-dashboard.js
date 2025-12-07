@@ -919,18 +919,14 @@ async function handleAuth() {
 // ============================================================
 
 async function loadSettings() {
-  try {
-    const { settings } = await api('/admin/settings');
-    // Handle both boolean and string values
-    const isOpen = settings.membership_open === true || settings.membership_open === 'true';
-    $('setting-membership-open').checked = isOpen;
-    $('setting-current-year').value = settings.current_year || '2024-2025';
-    // Reset dirty state after loading
-    const elements = getElements();
-    elements.saveSettingsBtn.disabled = true;
-  } catch (error) {
-    console.error('Settings error:', error);
-  }
+  const { settings } = await api('/admin/settings');
+  // Handle both boolean and string values
+  const isOpen = settings.membership_open === true || settings.membership_open === 'true';
+  $('setting-membership-open').checked = isOpen;
+  $('setting-current-year').value = settings.current_year || '2024-2025';
+  // Reset dirty state after loading
+  const elements = getElements();
+  elements.saveSettingsBtn.disabled = true;
 }
 
 async function saveSettings() {
