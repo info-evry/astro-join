@@ -750,6 +750,7 @@ async function loadData() {
     } else {
       toastError(error.message);
     }
+    throw error; // Re-throw to let caller know loading failed
   }
 }
 
