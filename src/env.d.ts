@@ -1,17 +1,8 @@
 /// <reference types="astro/client" />
+/// <reference path="../worker-configuration.d.ts" />
 
-interface Env {
-  DB: D1Database;
-  ADMIN_TOKEN: string;
-  ADMIN_EMAIL: string;
-  REPLY_TO_EMAIL: string;
-}
+type Runtime = import('@astrojs/cloudflare').Runtime;
 
 declare namespace App {
-  interface Locals {
-    runtime: {
-      env: Env;
-      ctx: ExecutionContext;
-    };
-  }
+  interface Locals extends Runtime {}
 }

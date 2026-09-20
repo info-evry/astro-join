@@ -25,7 +25,7 @@ Membership application system for Association Info Evry. Students can apply for 
 
 ## Tech Stack
 
-- **Framework**: Astro 5.x (SSR mode)
+- **Framework**: Astro 6.x (SSR mode)
 - **Runtime**: Cloudflare Workers
 - **Database**: Cloudflare D1 (SQLite)
 - **Design**: Shared design system via the maestro Bun workspace (`@info-evry/astro-design`)

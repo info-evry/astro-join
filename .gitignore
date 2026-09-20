@@ -20,6 +20,7 @@ pnpm-lock.yaml
 # Cloudflare
 .wrangler/
 wrangler.toml
+worker-configuration.d.ts
 
 # IDE
 .vscode/
@@ -56,3 +57,4 @@ coverage/
 # Generated assets (created by compute script)
 public/fonts/
 public/og.png
+.last-build-env

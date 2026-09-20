@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && (cp public/.assetsignore dist/ 2>/dev/null || true)",
+    "build": "astro build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui"
@@ -20,16 +20,16 @@
   "author": "Asso Info Evry",
   "license": "AGPL-3.0-only",
   "dependencies": {
-    "astro": "^5.16.4",
-    "@astrojs/cloudflare": "^12.6.12",
+    "astro": "^6.4.8",
+    "@astrojs/cloudflare": "^13.7.0",
     "astro-core": "workspace:*",
     "@info-evry/astro-design": "workspace:*",
     "@info-evry/knowledge": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.10.14",
-    "@vitest/coverage-v8": "2.1.9",
-    "vitest": "2.1.9",
-    "wrangler": "^4.53.0"
+    "@cloudflare/vitest-plugin": "^1.1.13",
+    "@vitest/coverage-v8": "^4.1.11",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.135.0"
   }
 }
