@@ -530,12 +530,46 @@ export const getSettings = adminOnly(async (request, env) => {
 });
 
 /**
+ * Allowlist of settings keys the admin API accepts, each with a validator
+ * that returns true if the incoming value is acceptable for that key.
+ */
+const VALID_KEYS = {
+  // Boolean-ish: real boolean, or the strings 'true'/'false'
+  membership_open: (value) =>
+    typeof value === 'boolean' || value === 'true' || value === 'false',
+  // Academic year range, e.g. "2024-2025" (second year = first + 1)
+  current_year: (value) => {
+    if (typeof value !== 'string') return false;
+    const match = /^(\d{4})-(\d{4})$/.exec(value);
+    if (!match) return false;
+    return Number(match[2]) === Number(match[1]) + 1;
+  },
+  // Array of up to 20 non-empty strings, each up to 60 characters
+  enrollment_tracks: (value) =>
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= 20 &&
+    value.every((track) => typeof track === 'string' && track.trim().length > 0 && track.length <= 60)
+};
+
+/**
  * Update settings
  * PUT /api/admin/settings
  */
 export const updateSettings = adminOnly(async (request, env) => {
   try {
     const body = await request.json();
+    const keys = Object.keys(body);
+
+    const unknownKeys = keys.filter((key) => !(key in VALID_KEYS));
+    if (unknownKeys.length > 0) {
+      return error(`Unknown setting key(s): ${unknownKeys.join(', ')}`, 400);
+    }
+
+    const invalidKeys = keys.filter((key) => !VALID_KEYS[key](body[key]));
+    if (invalidKeys.length > 0) {
+      return error(`Invalid value for setting key(s): ${invalidKeys.join(', ')}`, 400);
+    }
 
     for (const [key, value] of Object.entries(body)) {
       const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);

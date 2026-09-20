@@ -3,6 +3,7 @@
  */
 
 import { json, error } from '../lib/router.js';
+import { DEFAULT_ENROLLMENT_TRACKS } from '../lib/settings-defaults.js';
 
 /**
  * Get membership settings/config
@@ -28,14 +29,7 @@ export async function getConfig(request, env) {
       config: {
         membershipOpen: config.membership_open !== 'false',
         currentYear: config.current_year || '2024-2025',
-        enrollmentTracks: config.enrollment_tracks || [
-          'L1 Informatique',
-          'L2 Informatique',
-          'L3 Informatique',
-          'M1 Informatique',
-          'M2 Informatique',
-          'Autre'
-        ]
+        enrollmentTracks: config.enrollment_tracks || DEFAULT_ENROLLMENT_TRACKS
       }
     });
   } catch (error_) {

@@ -46,7 +46,10 @@ astro-join/
 │   │   ├── apply.js          # Application submission
 │   │   └── members.js        # Public member stats
 │   ├── lib/
-│   │   └── router.js         # API router
+│   │   ├── router.js              # API router
+│   │   ├── validation.js          # Shared validation helpers
+│   │   ├── ratelimit.js           # KV-backed rate limiting middleware
+│   │   └── settings-defaults.js   # Default values for admin settings
 │   ├── shared/
 │   │   └── response.js       # JSON response helpers
 │   ├── layouts/
@@ -123,6 +126,7 @@ bun run test:watch
 | Binding | Type | Description |
 |---------|------|-------------|
 | `DB` | D1 Database | SQLite database for members |
+| `RATE_LIMIT` | KV Namespace | Fixed-window rate limiting counters for `/api/apply` and `/api/admin/*` |
 
 ### Environment Variables
 
@@ -160,6 +164,29 @@ wrangler secret put ADMIN_TOKEN
 | `PUT` | `/api/admin/members/:id` | Update member |
 | `DELETE` | `/api/admin/members/:id` | Delete member |
 | `POST` | `/api/admin/members/batch` | Batch update members |
+
+### Rate Limiting
+
+Requests are rate limited using a KV-backed fixed window (see `RATE_LIMIT` binding above):
+
+| Rule | Scope | Limit |
+|------|-------|-------|
+| `apply` | `POST /api/apply` | 5 requests / 10 minutes per IP |
+| `admin` | `/api/admin/*` (any method) | 60 requests / minute per IP |
+
+Requests over the limit receive `429 Too Many Requests` with a `Retry-After` header. If the `RATE_LIMIT` binding is missing (e.g. local dev without KV configured), requests are allowed through and a warning is logged.
+
+### Settings
+
+Settings are stored as key/value rows in the `settings` table and managed via `GET`/`PUT /api/admin/settings`. `PUT` only accepts the following allowlisted keys; unknown keys or invalid values are rejected with `400`:
+
+| Key | Type | Validation |
+|-----|------|------------|
+| `membership_open` | boolean-ish | `true`, `false`, `'true'`, or `'false'` |
+| `current_year` | string | Academic year range `YYYY-YYYY` (second year = first + 1), e.g. `2024-2025` |
+| `enrollment_tracks` | array of strings | 1-20 entries, each a non-empty string up to 60 characters |
+
+`enrollment_tracks` also determines which `enrollmentTrack` values `POST /api/apply` accepts; it falls back to the defaults in `src/lib/settings-defaults.js` when unset.
 
 ## Member Statuses
 

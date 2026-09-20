@@ -3,6 +3,7 @@
  */
 
 import { Router } from './lib/router.js';
+import { createRateLimiter, pathPrefix } from './lib/ratelimit.js';
 import { apply } from './api/apply.js';
 import { getConfig, getStats } from './api/members.js';
 import {
@@ -20,6 +21,14 @@ import {
 export function createRouter() {
   // Pass base path to handle subpath deployments
   const router = new Router('/adhesion');
+
+  // Rate limit sensitive endpoints (backed by the RATE_LIMIT KV namespace)
+  router.use(createRateLimiter({
+    rules: [
+      { name: 'apply', methods: ['POST'], match: (p) => p === '/api/apply', limit: 5, windowSec: 600 },
+      { name: 'admin', match: pathPrefix('/api/admin/'), limit: 60, windowSec: 60 }
+    ]
+  }));
 
   // Public API routes
   router.get('/api/config', getConfig);

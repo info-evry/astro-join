@@ -9,5 +9,7 @@ export {
   sanitizeString,
   parseInteger,
   isDeadlinePassed,
-  isAfterCutoff
+  isAfterCutoff,
+  clampString,
+  isOneOf
 } from '../../core/src/lib/validation.js';

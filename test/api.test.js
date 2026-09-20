@@ -295,6 +295,58 @@ describe('Public API', () => {
       expect(member.first_name).toBe('John');
       expect(member.last_name).toBe('Doe');
     });
+
+    it('should reject an oversized firstName', async () => {
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'A'.repeat(101),
+          lastName: 'Doe',
+          email: 'oversized@test.com',
+          enrollmentTrack: 'L3 Informatique',
+          discord: '@oversized'
+        })
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should reject an unknown enrollmentTrack', async () => {
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'unknowntrack@test.com',
+          enrollmentTrack: 'Not A Real Track',
+          discord: '@unknowntrack'
+        })
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain('cursus');
+    });
+
+    it('should accept a valid application', async () => {
+      const response = await SELF.fetch('http://localhost/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'Valid',
+          lastName: 'Applicant',
+          email: 'validapplicant@test.com',
+          enrollmentTrack: 'L3 Informatique',
+          discord: '@validapplicant'
+        })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+    });
   });
 });
 
@@ -729,6 +781,34 @@ describe('Admin API', () => {
 
       const data = await getResponse.json();
       expect(data.settings.enrollment_tracks).toEqual(tracks);
+    });
+
+    it('should reject unknown setting keys', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/settings', {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          not_a_real_setting: 'value'
+        })
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain('not_a_real_setting');
+    });
+
+    it('should reject an invalid value for a known setting key', async () => {
+      const response = await SELF.fetch('http://localhost/api/admin/settings', {
+        method: 'PUT',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          current_year: 'not-a-year'
+        })
+      });
+
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toContain('current_year');
     });
   });
 
