@@ -28,8 +28,8 @@ Membership application system for Association Info Evry. Students can apply for 
 - **Framework**: Astro 5.x (SSR mode)
 - **Runtime**: Cloudflare Workers
 - **Database**: Cloudflare D1 (SQLite)
-- **Design**: Shared design system via git submodule
-- **Content**: Shared knowledge base via git submodule
+- **Design**: Shared design system via the maestro Bun workspace (`@info-evry/astro-design`)
+- **Content**: Shared knowledge base via the maestro Bun workspace (`@info-evry/knowledge`)
 - **Testing**: Vitest with Cloudflare Workers pool
 
 ## Project Structure
@@ -46,10 +46,8 @@ astro-join/
 │   │   ├── apply.js          # Application submission
 │   │   └── members.js        # Public member stats
 │   ├── lib/
-│   │   ├── router.js              # API router
-│   │   ├── validation.js          # Shared validation helpers
-│   │   ├── ratelimit.js           # KV-backed rate limiting middleware
 │   │   └── settings-defaults.js   # Default values for admin settings
+│   │       (router, validation, and rate limiting come from `astro-core`)
 │   ├── shared/
 │   │   └── response.js       # JSON response helpers
 │   ├── layouts/
@@ -61,9 +59,6 @@ astro-join/
 ├── db/
 │   ├── schema.sql            # Database schema
 │   └── migrate-*.sql         # Migrations
-├── core/                     # Shared code library (submodule)
-├── design/                   # Shared design system (submodule)
-├── knowledge/                # Shared content (submodule)
 ├── test/                     # API tests
 ├── public/                   # Static assets
 └── docs/
@@ -81,13 +76,9 @@ astro-join/
 ### Installation
 
 ```bash
-# Clone the maestro repo (which includes this as a submodule)
-git clone --recurse-submodules https://github.com/info-evry/astro-maestro.git
+# Clone the maestro repo (this project is part of its Bun workspace)
+git clone https://github.com/info-evry/astro-maestro.git
 cd astro-maestro
-
-# Or clone this repo directly for development
-git clone --recursive https://github.com/info-evry/astro-join.git
-cd astro-join
 bun install
 ```
 
@@ -221,11 +212,11 @@ Settings are stored as key/value rows in the `settings` table and managed via `G
 
 ## Related Repositories
 
-- [astro-core](https://github.com/info-evry/astro-core) - Shared code library (Router, helpers)
-- [astro-design](https://github.com/info-evry/astro-design) - Shared design system
-- [astro-knowledge](https://github.com/info-evry/astro-knowledge) - Shared content
-- [astro-asso](https://github.com/info-evry/astro-asso) - Association website
-- [astro-ndi](https://github.com/info-evry/astro-ndi) - NDI registration platform
+- `astro-core` (`astro-core` workspace package) - Shared code library (Router, helpers)
+- `astro-design` (`@info-evry/astro-design` workspace package) - Shared design system
+- `astro-knowledge` (`@info-evry/knowledge` workspace package) - Shared content
+- `astro-asso` (maestro workspace project) - Association website
+- `astro-ndi` (maestro workspace project) - NDI registration platform
 
 ## License
 

@@ -1,9 +1,0 @@
-[submodule "design"]
-	path = design
-	url = ../astro-design
-[submodule "knowledge"]
-	path = knowledge
-	url = ../astro-knowledge
-[submodule "core"]
-	path = core
-	url = https://github.com/info-evry/astro-core.git

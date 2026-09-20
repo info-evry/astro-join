@@ -2,7 +2,7 @@
  * Public member endpoints
  */
 
-import { json, error } from '../lib/router.js';
+import { json, error } from 'astro-core/router';
 import { DEFAULT_ENROLLMENT_TRACKS } from '../lib/settings-defaults.js';
 
 /**

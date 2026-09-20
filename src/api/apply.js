@@ -2,8 +2,8 @@
  * Membership application endpoint
  */
 
-import { error, success } from '../lib/router.js';
-import { clampString, isOneOf } from '../lib/validation.js';
+import { error, success } from 'astro-core/router';
+import { clampString, isOneOf } from 'astro-core/validation';
 import { DEFAULT_ENROLLMENT_TRACKS } from '../lib/settings-defaults.js';
 
 /**

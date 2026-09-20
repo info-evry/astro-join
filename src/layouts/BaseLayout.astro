@@ -1,10 +1,10 @@
 ---
-import '../../design/src/index.css';
-import Head from '../../design/src/components/Head.astro';
+import '@info-evry/astro-design';
+import Head from '@info-evry/astro-design/components/Head.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
-import MobileNav from '../../design/src/components/MobileNav.astro';
-import associationInfo from '../../knowledge/src/association/info.json';
+import MobileNav from '@info-evry/astro-design/components/MobileNav.astro';
+import associationInfo from '@info-evry/knowledge/association';
 
 const mobileNavItems = [
   { href: '#inscription', label: 'Adhésion', icon: 'person.badge.plus' },

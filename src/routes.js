@@ -2,8 +2,8 @@
  * Route registration for membership API
  */
 
-import { Router } from './lib/router.js';
-import { createRateLimiter, pathPrefix } from './lib/ratelimit.js';
+import { Router } from 'astro-core/router';
+import { createRateLimiter, pathPrefix } from 'astro-core/ratelimit';
 import { apply } from './api/apply.js';
 import { getConfig, getStats } from './api/members.js';
 import {

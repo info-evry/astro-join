@@ -4,7 +4,7 @@ export default defineWorkersConfig({
   test: {
     globals: true,
     testTimeout: 15_000,
-    exclude: ['**/node_modules/**', '**/design/**', '**/knowledge/**'],
+    exclude: ['**/node_modules/**'],
     setupFiles: ['./test/setup.js'],
     poolOptions: {
       workers: {

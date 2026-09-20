@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { Router, corsHeaders } from '../src/lib/router.js';
+import { Router, corsHeaders } from 'astro-core/router';
 
 describe('Router', () => {
   describe('constructor', () => {

@@ -10,12 +10,21 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui"
   },
-  "keywords": ["astro", "cloudflare", "workers", "d1", "membership"],
+  "keywords": [
+    "astro",
+    "cloudflare",
+    "workers",
+    "d1",
+    "membership"
+  ],
   "author": "Asso Info Evry",
   "license": "AGPL-3.0-only",
   "dependencies": {
     "astro": "^5.16.4",
-    "@astrojs/cloudflare": "^12.6.12"
+    "@astrojs/cloudflare": "^12.6.12",
+    "astro-core": "workspace:*",
+    "@info-evry/astro-design": "workspace:*",
+    "@info-evry/knowledge": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.10.14",

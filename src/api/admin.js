@@ -2,8 +2,8 @@
  * Admin API endpoints for membership management
  */
 
-import { json, error, success, csv } from '../lib/router.js';
-import { isValidEmail } from '../lib/validation.js';
+import { json, error, success, csv } from 'astro-core/router';
+import { isValidEmail } from 'astro-core/validation';
 
 /**
  * Constant-time string comparison to prevent timing attacks

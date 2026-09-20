@@ -3,7 +3,7 @@
  */
 
 import type { APIRoute } from 'astro';
-import { corsHeaders, error } from '../../lib/router.js';
+import { corsHeaders, error } from 'astro-core/router';
 import { createRouter } from '../../routes.js';
 
 const router = createRouter();

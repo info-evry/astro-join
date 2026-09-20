@@ -8,21 +8,13 @@
 bun install
 ```
 
-### 2. Initialize Git Submodules
-
-If you didn't clone with `--recursive`:
-
-```bash
-git submodule update --init
-```
-
-### 3. Create Local Database
+### 2. Create Local Database
 
 ```bash
 bun run db:init
 ```
 
-### 4. Create Environment File
+### 3. Create Environment File
 
 Create `.dev.vars` for local development:
 
@@ -32,7 +24,7 @@ ADMIN_EMAIL=dev@example.com
 REPLY_TO_EMAIL=dev@example.com
 ```
 
-### 5. Start Development Server
+### 4. Start Development Server
 
 ```bash
 bun run dev
@@ -71,11 +63,8 @@ bun run build
 bun run test
 ```
 
-## Updating Submodules
+## Updating Shared Packages
 
-To update the design system or knowledge base:
-
-```bash
-git submodule update --remote design
-git submodule update --remote knowledge
-```
+The design system (`@info-evry/astro-design`) and knowledge base (`@info-evry/knowledge`) are
+maestro Bun workspace packages under `projects/`. Update them by editing those projects directly
+and running `bun install` from the maestro root.
