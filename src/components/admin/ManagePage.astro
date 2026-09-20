@@ -1,0 +1,235 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminPageHeader from '@info-evry/astro-design/components/admin/AdminPageHeader.astro';
+import AdminSidebar from '@info-evry/astro-design/components/admin/AdminSidebar.astro';
+import Modal from '@info-evry/astro-design/components/admin/Modal.astro';
+---
+
+<AdminLayout title="Gestion des adhesions - Asso Info Evry">
+  <AdminPageHeader
+    title="Gestion des Adhesions"
+    subtitle="Administration des membres de l'association"
+    breadcrumb="Asso Info Evry"
+  />
+
+  <main class="container-wide admin">
+    <!-- Auth Section -->
+    <section id="auth-section" class="section glass-card">
+      <h2>Authentification</h2>
+      <div class="form-group">
+        <label for="admin-token">Token d'administration</label>
+        <input type="password" id="admin-token" placeholder="Entrez votre token...">
+      </div>
+      <button type="button" id="auth-btn" class="btn btn-primary">Connexion</button>
+      <p id="auth-error" class="error-text hidden"></p>
+    </section>
+
+    <!-- Admin Content with Sidebar -->
+    <div id="admin-content" class="hidden admin-layout">
+      <AdminSidebar
+        activeTab="members"
+        tabs={[
+          { id: 'members', label: 'Membres', icon: 'person.2', badge: 0 },
+          { id: 'pending', label: 'En attente', icon: 'person.badge.clock', badge: 0 },
+          { id: 'bureau', label: 'Bureau', icon: 'person.3' },
+          { id: 'import', label: 'Import', icon: 'square.and.arrow.down' },
+          { id: 'settings', label: 'Paramètres', icon: 'gear' }
+        ]}
+      />
+
+      <!-- Main Content Area -->
+      <div class="admin-main">
+        <!-- Members Tab (Stats + All Members) -->
+        <div id="panel-members" class="tab-panel" role="tabpanel" aria-labelledby="tab-members">
+          <div class="settings-header">
+            <h2>Membres</h2>
+            <div class="header-actions">
+              <button type="button" id="export-btn" class="btn btn-secondary btn-sm">Exporter CSV</button>
+              <button type="button" id="refresh-btn" class="btn btn-secondary btn-sm">Rafraîchir</button>
+            </div>
+          </div>
+
+          <!-- Stats Grid -->
+          <div id="stats-grid" class="stats-grid" style="margin-bottom: var(--space-6);"></div>
+
+          <!-- Members List -->
+          <div class="members-toolbar">
+            <div class="filters-row">
+              <input type="search" id="filter-search" class="filter-search" placeholder="Rechercher (nom, email, n° étudiant...)">
+              <select id="filter-status" class="filter-select">
+                <option value="">Tous les statuts</option>
+                <option value="active">Membres actifs</option>
+                <option value="honor">Membres d'honneur</option>
+                <option value="honorary_president">Présidents d'honneur</option>
+                <option value="bureau">Bureau</option>
+                <option value="pending">En attente</option>
+                <option value="rejected">Refusés</option>
+                <option value="expired">Expirés</option>
+              </select>
+              <select id="filter-track" class="filter-select">
+                <option value="">Tous les cursus</option>
+              </select>
+            </div>
+            <div id="bulk-actions" class="bulk-actions hidden">
+              <span id="selection-count">0 sélectionné(s)</span>
+              <button type="button" class="btn btn-sm btn-primary" data-action="bulk-approve">Approuver</button>
+              <button type="button" class="btn btn-sm btn-secondary" data-action="bulk-set-status" data-status="active">→ Actif</button>
+              <button type="button" class="btn btn-sm btn-secondary" data-action="bulk-set-status" data-status="honor">→ Honneur</button>
+              <button type="button" class="btn btn-sm btn-secondary" data-action="bulk-set-status" data-status="expired">→ Expiré</button>
+              <button type="button" class="btn btn-sm btn-danger" data-action="bulk-delete">Supprimer</button>
+            </div>
+          </div>
+          <div id="members-container" class="table-container"></div>
+        </div>
+
+        <!-- Pending Tab -->
+        <div id="panel-pending" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-pending">
+          <div class="settings-header">
+            <h2>Demandes en attente</h2>
+            <div class="header-actions">
+              <button type="button" id="approve-all-btn" class="btn btn-primary btn-sm" data-action="approve-all" disabled>Tout approuver</button>
+            </div>
+          </div>
+          <div id="pending-container" class="table-container"></div>
+        </div>
+
+        <!-- Bureau Tab -->
+        <div id="panel-bureau" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-bureau">
+          <div class="settings-header">
+            <h2>Bureau</h2>
+          </div>
+          <div id="bureau-container"></div>
+        </div>
+
+        <!-- Import Tab -->
+        <div id="panel-import" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-import">
+          <div class="settings-header">
+            <h2>Importer des membres</h2>
+          </div>
+          <div class="settings-card">
+            <h3>Import CSV</h3>
+            <p style="margin-bottom: var(--space-3); color: var(--color-text-muted);">
+              Format attendu: Prénom, Nom, Email, Téléphone, Numéro, Filière d'inscription, Statut
+            </p>
+            <div class="form-group">
+              <label for="import-file">Fichier CSV</label>
+              <input type="file" id="import-file" accept=".csv,.txt">
+            </div>
+            <div id="import-preview" class="hidden" style="margin: var(--space-4) 0;">
+              <h4>Aperçu</h4>
+              <div id="import-preview-content"></div>
+            </div>
+            <div class="quick-actions">
+              <button type="button" id="import-btn" class="btn btn-primary btn-sm" disabled>Importer</button>
+            </div>
+            <div id="import-result" class="hidden" style="margin-top: var(--space-4);"></div>
+          </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="panel-settings" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-settings">
+          <div class="settings-header">
+            <h2>Paramètres</h2>
+            <div class="header-actions">
+              <button type="button" id="save-settings-btn" class="btn btn-primary btn-sm" disabled>Enregistrer</button>
+            </div>
+          </div>
+          <div class="settings-card">
+            <h3>Inscriptions</h3>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="setting-membership-open" checked>
+                Accepter les nouvelles demandes d'adhésion
+              </label>
+            </div>
+            <div class="form-group">
+              <label for="setting-current-year">Année universitaire</label>
+              <input type="text" id="setting-current-year" value="2024-2025" placeholder="2024-2025">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Member Modal -->
+    <Modal id="member-modal" title="Modifier le membre">
+      <form id="member-form">
+        <input type="hidden" id="member-form-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="member-form-firstname">Prénom *</label>
+            <input type="text" id="member-form-firstname" required>
+          </div>
+          <div class="form-group">
+            <label for="member-form-lastname">Nom *</label>
+            <input type="text" id="member-form-lastname" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="member-form-email">Email *</label>
+            <input type="email" id="member-form-email" required>
+          </div>
+          <div class="form-group">
+            <label for="member-form-studentid">Numéro étudiant</label>
+            <input type="text" id="member-form-studentid" maxlength="32" placeholder="Optionnel">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="member-form-track">Cursus</label>
+            <input type="text" id="member-form-track" list="admin-cursus-list" placeholder="Ex: L3 Informatique">
+            <datalist id="admin-cursus-list">
+              <option value="L1 Informatique"></option>
+              <option value="L2 Informatique"></option>
+              <option value="L3 Informatique"></option>
+              <option value="M1 Informatique"></option>
+              <option value="M2 Informatique"></option>
+              <option value="Doctorat Informatique"></option>
+              <option value="L1 Mathématiques"></option>
+              <option value="L2 Mathématiques"></option>
+              <option value="L3 Mathématiques"></option>
+              <option value="Autre"></option>
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label for="member-form-status">Statut</label>
+            <select id="member-form-status">
+              <option value="pending">En attente</option>
+              <option value="active">Membre actif</option>
+              <option value="honor">Membre d'honneur</option>
+              <option value="president">Président</option>
+              <option value="vice_president">Vice-président</option>
+              <option value="secretary">Secrétaire</option>
+              <option value="treasurer">Trésorier</option>
+              <option value="honorary_president">Président d'honneur</option>
+              <option value="rejected">Refusé</option>
+              <option value="expired">Expiré</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="member-form-notes">Notes</label>
+          <textarea id="member-form-notes" rows="2"></textarea>
+        </div>
+      </form>
+      <Fragment slot="actions">
+        <button type="button" class="btn btn-secondary" data-modal-close="member-modal">Annuler</button>
+        <button type="submit" form="member-form" class="btn btn-primary">Enregistrer</button>
+      </Fragment>
+    </Modal>
+
+    <!-- Confirm Modal -->
+    <Modal id="confirm-modal" title="Confirmer l'action">
+      <p id="confirm-message"></p>
+      <Fragment slot="actions">
+        <button type="button" class="btn btn-secondary" data-modal-close="confirm-modal">Annuler</button>
+        <button type="button" id="confirm-btn" class="btn btn-danger">Confirmer</button>
+      </Fragment>
+    </Modal>
+  </main>
+</AdminLayout>
+
+<script>
+import '../../client/admin/main.js';
+</script>

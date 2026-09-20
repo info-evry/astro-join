@@ -1,0 +1,26 @@
+/**
+ * Join-only admin overrides.
+ *
+ * Everything else the admin dashboard needs (toolbars, tables, badges,
+ * modals, sidebar, settings cards, ...) comes from the shared
+ * @info-evry/astro-design admin CSS. This file is only for the one thing
+ * that's genuinely specific to the Join members table: it has more
+ * columns than the design system's generic `.data-table` is tuned for,
+ * so it needs a wider minimum width and non-wrapping cells (with the
+ * name column - the 2nd cell - kept wrapping so long notes don't force
+ * the table wider still).
+ */
+
+#members-container .data-table {
+  min-width: 1000px;
+}
+
+#members-container .data-table th,
+#members-container .data-table td {
+  white-space: nowrap;
+}
+
+#members-container .data-table td:nth-child(2) {
+  white-space: normal;
+  max-width: 200px;
+}
