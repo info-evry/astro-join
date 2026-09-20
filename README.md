@@ -75,36 +75,41 @@ astro-join/
 ### Prerequisites
 
 - [Bun](https://bun.sh/) (v1.0+)
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (v3+)
+- Wrangler CLI (install via Bun: `bunx wrangler`)
 - Cloudflare account with Workers and D1 access
 
 ### Installation
 
 ```bash
-# Clone with submodules
+# Clone the maestro repo (which includes this as a submodule)
+git clone --recurse-submodules https://github.com/info-evry/astro-maestro.git
+cd astro-maestro
+
+# Or clone this repo directly for development
 git clone --recursive https://github.com/info-evry/astro-join.git
 cd astro-join
-
-# Install dependencies
 bun install
 ```
 
 ### Local Development
 
+#### Via Maestro (recommended)
+
+From the maestro root:
+```bash
+bun run dev:join
+```
+
+This sets up the database, environment variables, and starts the dev server on **port 4322**.
+Admin interface at: http://localhost:4322/adhesion/manage (token: `dev-admin-token`)
+
+#### Standalone
+
 ```bash
 bun run dev
 ```
 
-Visit `http://localhost:4321`
-
-### Database Setup
-
-```bash
-# Initialize local D1 database
-bun run db:init
-```
-
-See [docs/setup.md](./docs/setup.md) for production Cloudflare D1 configuration.
+See `docs/setup.md` for database configuration.
 
 ### Testing
 
@@ -112,12 +117,14 @@ See [docs/setup.md](./docs/setup.md) for production Cloudflare D1 configuration.
 # Build first (required for Workers tests)
 bun run build
 
-# Run tests
-bun run test
+# Run tests with Vitest
+bunx vitest run
 
 # Watch mode
-bun run test:watch
+bunx vitest
 ```
+
+For detailed development and deployment instructions, see [maestro docs](../../docs/DEVELOPMENT.md).
 
 ## Environment Configuration
 

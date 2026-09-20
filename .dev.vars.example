@@ -1,0 +1,9 @@
+# Local development secrets for `astro dev` (Cloudflare platformProxy).
+# Copy this file to `.dev.vars` (gitignored) - `bun run dev` does this
+# automatically the first time you run it.
+
+ADMIN_TOKEN=dev-admin-token
+
+# Optional: unused by this project today, kept for parity with other sites.
+# RESEND_API_KEY=your-resend-api-key-here
+# SUMUP_API_KEY=your-sumup-api-key-here
