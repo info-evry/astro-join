@@ -171,6 +171,17 @@ function validateContactFields(data, errors) {
 function validateApplication(data, enrollmentTracks) {
   const errors = [];
 
+  // Non-string inputs (numbers, arrays, objects) must not reach the
+  // trim()/length checks below: coerce them to empty strings up front.
+  for (const field of ['firstName', 'lastName', 'email', 'studentId', 'phone', 'telegram', 'discord', 'enrollmentTrack']) {
+    if (data[field] !== undefined && data[field] !== null && typeof data[field] !== 'string') {
+      data[field] = '';
+    }
+  }
+  if (isTooLong(data.studentId, 32)) {
+    errors.push('Le numéro étudiant est trop long (32 caractères maximum)');
+  }
+
   validateIdentityFields(data, errors);
 
   if (!data.enrollmentTrack) {

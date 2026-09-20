@@ -561,7 +561,7 @@ export const updateSettings = adminOnly(async (request, env) => {
     const body = await request.json();
     const keys = Object.keys(body);
 
-    const unknownKeys = keys.filter((key) => !(key in VALID_KEYS));
+    const unknownKeys = keys.filter((key) => !Object.hasOwn(VALID_KEYS, key));
     if (unknownKeys.length > 0) {
       return error(`Unknown setting key(s): ${unknownKeys.join(', ')}`, 400);
     }
