@@ -20,8 +20,8 @@
   "author": "Asso Info Evry",
   "license": "AGPL-3.0-only",
   "dependencies": {
-    "astro": "^6.4.8",
-    "@astrojs/cloudflare": "^13.7.0",
+    "astro": "^7.3.3",
+    "@astrojs/cloudflare": "^14.3.2",
     "astro-core": "workspace:*",
     "@info-evry/astro-design": "workspace:*",
     "@info-evry/knowledge": "workspace:*"
