@@ -6,4 +6,3 @@ ADMIN_TOKEN=dev-admin-token
 
 # Optional: unused by this project today, kept for parity with other sites.
 # RESEND_API_KEY=your-resend-api-key-here
-# SUMUP_API_KEY=your-sumup-api-key-here
