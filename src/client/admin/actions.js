@@ -50,7 +50,8 @@ export function bindDelegation(actions, changes) {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
     if (!el) return;
-    const fn = actions[el.dataset.action];
+    // Own keys only: inherited names like "__proto__" are not actions
+    const fn = Object.hasOwn(actions, el.dataset.action) ? actions[el.dataset.action] : undefined;
     if (fn) {
       e.preventDefault?.();
       fn(el, e);
@@ -60,6 +61,6 @@ export function bindDelegation(actions, changes) {
   document.addEventListener('change', (e) => {
     const el = e.target.closest('[data-change]');
     if (!el) return;
-    changes[el.dataset.change]?.(el, e);
+    if (Object.hasOwn(changes, el.dataset.change)) changes[el.dataset.change](el, e);
   });
 }

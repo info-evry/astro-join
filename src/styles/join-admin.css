@@ -24,3 +24,24 @@
   white-space: normal;
   max-width: 200px;
 }
+
+/*
+ * Inline import result. Deliberately not a `.toast`: the shared toast helper
+ * removes the first `.toast` in the document whenever it shows a new one,
+ * which would delete this banner the moment the toast for it is displayed.
+ */
+.import-banner {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-lg);
+}
+
+.import-banner.success {
+  border-left: 4px solid var(--color-success);
+}
+
+.import-banner.error {
+  border-left: 4px solid var(--color-error);
+}

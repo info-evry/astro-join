@@ -5,6 +5,7 @@
 import { error, success } from 'astro-core/router';
 import { clampString, isOneOf } from 'astro-core/validation';
 import { DEFAULT_ENROLLMENT_TRACKS } from '../lib/settings-defaults.js';
+import { readJsonObject, isUniqueConstraintError } from '../lib/request.js';
 
 /**
  * Submit a membership application
@@ -12,7 +13,18 @@ import { DEFAULT_ENROLLMENT_TRACKS } from '../lib/settings-defaults.js';
  */
 export async function apply(request, env) {
   try {
-    const body = await request.json();
+    const body = await readJsonObject(request);
+    if (!body) {
+      return error('Requête invalide : un objet JSON est attendu.', 400);
+    }
+    // Validation
+    const enrollmentTracks = await getEnrollmentTracks(env);
+    const errors = validateApplication(body, enrollmentTracks);
+    if (errors.length > 0) {
+      return error(errors.join('; '), 400);
+    }
+
+    // Destructure only after validation, which coerces non-string values
     const {
       firstName,
       lastName,
@@ -24,61 +36,94 @@ export async function apply(request, env) {
       discord
     } = body;
 
-    // Validation
-    const enrollmentTracks = await getEnrollmentTracks(env);
-    const errors = validateApplication(body, enrollmentTracks);
-    if (errors.length > 0) {
-      return error(errors.join('; '), 400);
-    }
-
-    // Check if email already exists
-    const existing = await env.DB.prepare(
-      'SELECT id, status FROM members WHERE email = ?'
-    ).bind(email.toLowerCase()).first();
-
-    if (existing) {
-      if (existing.status === 'pending') {
-        return error('Une demande avec cet email est déjà en attente de validation.', 409);
-      } else if (existing.status === 'active') {
-        return error('Cet email est déjà associé à un membre actif.', 409);
-      }
-      // If rejected or expired, allow re-application
-    }
-
-    // Insert new member application
-    const result = await env.DB.prepare(`
-      INSERT INTO members (
-        first_name, last_name, email, student_id, enrollment_track,
-        phone, telegram, discord, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-    `).bind(
+    // Normalise once so the duplicate lookup and the insert agree
+    const normalizedEmail = email.toLowerCase().trim();
+    const fields = [
       firstName.trim(),
       lastName.trim(),
-      email.toLowerCase().trim(),
+      normalizedEmail,
       studentId?.trim() || null,
       enrollmentTrack,
       phone?.trim() || null,
       telegram?.trim() || null,
       discord?.trim() || null
-    ).run();
+    ];
 
-    // Log the application
-    if (result.meta.last_row_id) {
-      await env.DB.prepare(`
-        INSERT INTO membership_history (member_id, new_status, reason)
-        VALUES (?, 'pending', 'Application submitted')
-      `).bind(result.meta.last_row_id).run();
+    const existing = await env.DB.prepare(
+      'SELECT id, status FROM members WHERE email = ?'
+    ).bind(normalizedEmail).first();
+
+    if (existing?.status === 'pending') {
+      return error('Une demande avec cet email est déjà en attente de validation.', 409);
     }
+    if (existing && existing.status !== 'rejected' && existing.status !== 'expired') {
+      return error('Cet email est déjà associé à un membre actif.', 409);
+    }
+
+    // Rejected/expired members re-apply by reopening their existing row
+    // (email is UNIQUE, so a second INSERT would fail).
+    const memberId = existing
+      ? await reopenApplication(env.DB, existing, fields)
+      : await insertApplication(env.DB, fields);
 
     return success(
       'Votre demande d\'adhésion a bien été enregistrée. Vous recevrez un email de confirmation une fois votre demande validée.',
-      { memberId: result.meta.last_row_id }
+      { memberId }
     );
 
   } catch (error_) {
+    if (isUniqueConstraintError(error_)) {
+      // Lost a race with a concurrent application for the same email
+      return error('Une demande avec cet email est déjà en attente de validation.', 409);
+    }
     console.error('Application error:', error_);
     return error('Une erreur est survenue. Veuillez réessayer.', 500);
   }
+}
+
+/**
+ * Insert a new pending application and log it in the history.
+ * @returns {Promise<number>} the new member id
+ */
+async function insertApplication(database, fields) {
+  const result = await database.prepare(`
+    INSERT INTO members (
+      first_name, last_name, email, student_id, enrollment_track,
+      phone, telegram, discord, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+  `).bind(...fields).run();
+
+  const memberId = result.meta.last_row_id;
+  if (memberId) {
+    await database.prepare(`
+      INSERT INTO membership_history (member_id, new_status, reason)
+      VALUES (?, 'pending', 'Application submitted')
+    `).bind(memberId).run();
+  }
+  return memberId;
+}
+
+/**
+ * Put a previously rejected/expired member back to pending with the
+ * freshly submitted details.
+ * @returns {Promise<number>} the existing member id
+ */
+async function reopenApplication(database, existing, fields) {
+  const [firstName, lastName, , studentId, enrollmentTrack, phone, telegram, discord] = fields;
+  await database.prepare(`
+    UPDATE members SET
+      first_name = ?, last_name = ?, student_id = ?, enrollment_track = ?,
+      phone = ?, telegram = ?, discord = ?, status = 'pending',
+      approved_at = NULL, expires_at = NULL,
+      created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).bind(firstName, lastName, studentId, enrollmentTrack, phone, telegram, discord, existing.id).run();
+
+  await database.prepare(`
+    INSERT INTO membership_history (member_id, old_status, new_status, reason)
+    VALUES (?, ?, 'pending', 'Application re-submitted')
+  `).bind(existing.id, existing.status).run();
+  return existing.id;
 }
 
 /**

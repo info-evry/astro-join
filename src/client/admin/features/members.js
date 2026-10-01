@@ -134,7 +134,7 @@ function memberRow(m) {
       <td>${m.student_id ? escapeHtml(m.student_id) : '<span class="text-muted">-</span>'}</td>
       <td class="team-col">${escapeHtml(m.enrollment_track)}</td>
       <td class="contact-cell">${getContactInfo(m)}</td>
-      <td class="badge-col"><span class="badge badge-${getStatusClass(m.status)}">${getStatusLabel(m.status)}</span></td>
+      <td class="badge-col"><span class="badge badge-${getStatusClass(m.status)}">${escapeHtml(getStatusLabel(m.status))}</span></td>
       <td>${formatMemberDate(m.created_at, true)}</td>
       <td class="actions-col">
         <div class="action-buttons">

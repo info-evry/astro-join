@@ -31,7 +31,7 @@ export function getStatusClass(status) {
 }
 
 export function getStatusLabel(status) {
-  return STATUS_TABLE_LABELS[status] || status;
+  return STATUS_TABLE_LABELS[status] || fullStatusLabel(status);
 }
 
 /** Format a member date, matching the previous "dd/mm/yyyy[ hh:mm]" look. */

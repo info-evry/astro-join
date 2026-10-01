@@ -27,7 +27,8 @@ export async function getConfig(request, env) {
 
     return json({
       config: {
-        membershipOpen: config.membership_open !== 'false',
+        // Stored as the string 'false' but parsed back to a boolean above.
+        membershipOpen: config.membership_open !== false && config.membership_open !== 'false',
         currentYear: config.current_year || '2024-2025',
         enrollmentTracks: config.enrollment_tracks || DEFAULT_ENROLLMENT_TRACKS
       }

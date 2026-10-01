@@ -105,11 +105,14 @@ See `docs/setup.md` for database configuration.
 ### Testing
 
 ```bash
-# Build first (required for Workers tests)
-bun run build
+# Everything: build, Workers API tests, then browser (happy-dom) admin tests
+bun run test
 
-# Run tests with Vitest
-bunx vitest run
+# Workers API tests only (needs a fresh `bun run build` first)
+bun run test:workers
+
+# Admin dashboard DOM tests only (test/dom, no build needed)
+bun run test:dom
 
 # Watch mode
 bunx vitest

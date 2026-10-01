@@ -62,7 +62,7 @@ async function handleImport(api, loadData) {
     if (stats.skipped > 0) message += `, ${stats.skipped} ignoré(s)`;
 
     importResult.innerHTML = `
-      <div class="toast success" style="position: static; transform: none;">
+      <div class="import-banner success">
         ${message}
       </div>
       ${result.errors ? `
@@ -83,7 +83,7 @@ async function handleImport(api, loadData) {
   } catch (error) {
     toastError(error.message);
     importResult.innerHTML = `
-      <div class="toast error" style="position: static; transform: none;">
+      <div class="import-banner error">
         Erreur: ${escapeHtml(error.message)}
       </div>
     `;

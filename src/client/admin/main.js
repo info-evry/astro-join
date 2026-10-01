@@ -51,6 +51,21 @@ async function loadData() {
   }
 }
 
+/**
+ * Reload for fire-and-forget callers (feature modules, refresh button).
+ * loadData already reports failures (toast / back to the login screen), so
+ * swallowing the rethrow here avoids unhandled promise rejections.
+ * @returns {Promise<boolean>} whether the reload succeeded
+ */
+async function reloadData() {
+  try {
+    await loadData();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function showAuth() {
   $('auth-section').classList.remove('hidden');
   $('admin-content').classList.add('hidden');
@@ -72,7 +87,7 @@ let authedModulesReady = false;
 function initAuthedModules() {
   if (authedModulesReady) return;
   authedModulesReady = true;
-  initImport(api, loadData);
+  initImport(api, reloadData);
   initSettings(api);
 }
 
@@ -102,20 +117,19 @@ async function handleAuth() {
 }
 
 async function init() {
-  const { actions, changes } = buildActions({ api, loadData });
+  const { actions, changes } = buildActions({ api, loadData: reloadData });
   bindDelegation(actions, changes);
 
   initTabs();
   initModals();
-  initMembers(api, loadData);
+  initMembers(api, reloadData);
 
   $('auth-btn').addEventListener('click', handleAuth);
   $('admin-token').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleAuth();
   });
-  $('refresh-btn').addEventListener('click', () => {
-    loadData();
-    toastSuccess('Données actualisées');
+  $('refresh-btn').addEventListener('click', async () => {
+    if (await reloadData()) toastSuccess('Données actualisées');
   });
   if (getToken()) {
     try {

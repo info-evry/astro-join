@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "test": "vitest run",
+    "test": "bun run build && bun run test:workers && bun run test:dom",
+    "test:workers": "vitest run",
+    "test:dom": "vitest run --config vitest.dom.config.js",
     "test:watch": "vitest",
     "test:ui": "vitest --ui"
   },
@@ -29,6 +31,7 @@
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.1.13",
     "@vitest/coverage-v8": "^4.1.11",
+    "happy-dom": "^20.14.5",
     "vitest": "^4.1.11",
     "wrangler": "^4.135.0"
   }

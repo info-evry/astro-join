@@ -4,6 +4,7 @@
 
 import { json, error, success, csv } from 'astro-core/router';
 import { isValidEmail } from 'astro-core/validation';
+import { readJsonObject, isUniqueConstraintError } from '../lib/request.js';
 
 /**
  * Constant-time string comparison to prevent timing attacks
@@ -98,6 +99,21 @@ function adminOnly(handler) {
     return handler(request, env, ctx, params);
   };
 }
+
+/**
+ * Parse a :id route parameter. Only plain positive integers are accepted, so
+ * "12abc" or "3.5" can never address member 12 or 3 by accident.
+ * @param {string} raw
+ * @returns {number | null}
+ */
+function parseMemberId(raw) {
+  if (!/^\d{1,15}$/.test(raw)) return null;
+  const id = Number(raw);
+  return id > 0 ? id : null;
+}
+
+const MEMBER_NOT_FOUND = 'Member not found';
+const INVALID_BODY = 'Invalid request body: a JSON object is required';
 
 /**
  * Get all members with stats
@@ -206,6 +222,39 @@ export const adminStats = adminOnly(async (request, env) => {
 });
 
 /**
+ * Text columns editable through PUT /api/admin/members/:id.
+ * Required ones can never be null; identity ones can never be blank.
+ */
+const TEXT_FIELDS = [
+  'firstName', 'lastName', 'email', 'studentId', 'enrollmentTrack',
+  'phone', 'telegram', 'discord', 'enrollmentNumber', 'notes'
+];
+const NON_NULL_FIELDS = new Set(['firstName', 'lastName', 'email', 'enrollmentTrack']);
+const NON_BLANK_FIELDS = new Set(['firstName', 'lastName', 'email']);
+
+/**
+ * Validate the types of the editable text fields so malformed input is
+ * answered with a 400 instead of crashing inside the field transforms.
+ * @returns {string | null} an error message, or null if the body is valid
+ */
+function validateFieldTypes(body) {
+  for (const key of TEXT_FIELDS) {
+    const value = body[key];
+    if (value === undefined) continue;
+    if (value === null) {
+      if (NON_NULL_FIELDS.has(key)) return `${key} cannot be null`;
+      continue;
+    }
+    if (typeof value !== 'string') return `${key} must be a string`;
+    if (NON_BLANK_FIELDS.has(key) && !value.trim()) return `${key} cannot be empty`;
+  }
+  if (body.email !== undefined && !isValidEmail(body.email)) {
+    return 'Invalid email format';
+  }
+  return null;
+}
+
+/**
  * Build field updates from request body
  */
 function buildFieldUpdates(body, updates, values) {
@@ -252,7 +301,7 @@ async function handleBureauStatusUpdate(database, memberId, newStatus, currentSt
     if (existing) {
       return { error: `Le rôle ${STATUS_LABELS[newStatus]} est déjà attribué à ${existing.first_name} ${existing.last_name}` };
     }
-    return { error: 'Member not found', status: 404 };
+    return { error: MEMBER_NOT_FOUND, status: 404 };
   }
 
   // Log status change
@@ -294,17 +343,11 @@ async function handleStatusChange(database, memberId, body, current, updates, va
     const result = await handleBureauStatusUpdate(database, memberId, body.status, current.status, body.reason);
     if (result.error) return result;
 
-    const hasOtherUpdates = body.approvedAt !== undefined || body.expiresAt !== undefined ||
-        body.enrollmentNumber !== undefined || body.notes !== undefined;
-
-    if (!hasOtherUpdates && updates.length === 0) {
-      await setApprovalDates(database, memberId, body.status, current.status, updates, values);
-      if (updates.length > 0) {
-        await database.prepare(`UPDATE members SET ${updates.join(', ')} WHERE id = ?`)
-          .bind(...values, memberId).run();
-      }
-      return { done: true };
-    }
+    // The status itself is already written (atomically). Dates and any other
+    // field edits go through the regular update, so promoting a pending
+    // member while editing their details still sets approval/expiry.
+    await setApprovalDates(database, memberId, body.status, current.status, updates, values);
+    if (updates.length === 0) return { done: true };
   } else {
     updates.push('status = ?');
     values.push(body.status);
@@ -332,12 +375,22 @@ async function logStatusChange(database, memberId, body, current) {
  */
 export const updateMember = adminOnly(async (request, env, ctx, params) => {
   try {
-    const memberId = Number.parseInt(params.id);
-    const body = await request.json();
+    const memberId = parseMemberId(params.id);
+    if (memberId === null) {
+      return error(MEMBER_NOT_FOUND, 404);
+    }
+    const body = await readJsonObject(request);
+    if (!body) {
+      return error(INVALID_BODY, 400);
+    }
+    const typeError = validateFieldTypes(body);
+    if (typeError) {
+      return error(typeError, 400);
+    }
 
     const current = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(memberId).first();
     if (!current) {
-      return error('Member not found', 404);
+      return error(MEMBER_NOT_FOUND, 404);
     }
 
     const updates = [];
@@ -362,6 +415,9 @@ export const updateMember = adminOnly(async (request, env, ctx, params) => {
 
     return success('Member updated successfully');
   } catch (error_) {
+    if (isUniqueConstraintError(error_)) {
+      return error('Email already used by another member', 409);
+    }
     console.error('Update member error:', error_);
     return error('Failed to update member', 500);
   }
@@ -373,14 +429,17 @@ export const updateMember = adminOnly(async (request, env, ctx, params) => {
  */
 export const deleteMember = adminOnly(async (request, env, ctx, params) => {
   try {
-    const memberId = Number.parseInt(params.id);
+    const memberId = parseMemberId(params.id);
+    if (memberId === null) {
+      return error(MEMBER_NOT_FOUND, 404);
+    }
 
     const result = await env.DB.prepare(
       'DELETE FROM members WHERE id = ?'
     ).bind(memberId).run();
 
     if (result.meta.changes === 0) {
-      return error('Member not found', 404);
+      return error(MEMBER_NOT_FOUND, 404);
     }
 
     return success('Member deleted successfully');
@@ -390,47 +449,85 @@ export const deleteMember = adminOnly(async (request, env, ctx, params) => {
   }
 });
 
+/** Upper bound on ids accepted by one batch request. */
+const BATCH_MAX_IDS = 1000;
+/** D1 allows at most 100 bound parameters per query, so work in small chunks. */
+const BATCH_CHUNK_SIZE = 50;
+const BATCH_STATUSES = new Set(['active', 'rejected', 'expired']);
+
+/**
+ * Validate a batch request body.
+ * @returns {string | null} an error message, or null if valid
+ */
+function validateBatchBody({ memberIds, status, reason }) {
+  if (!Array.isArray(memberIds) || memberIds.length === 0) return 'No members specified';
+  if (memberIds.length > BATCH_MAX_IDS) return `Too many members (maximum ${BATCH_MAX_IDS})`;
+  if (!memberIds.every((id) => Number.isSafeInteger(id) && id > 0)) return 'memberIds must be positive integers';
+  if (!BATCH_STATUSES.has(status)) return 'Invalid status';
+  if (reason !== undefined && reason !== null && typeof reason !== 'string') return 'reason must be a string';
+  return null;
+}
+
+/**
+ * Apply a batch status change to one chunk of ids, skipping ids that do not
+ * exist, and log each change in the membership history.
+ * @returns {Promise<number>} number of members updated
+ */
+async function updateBatchChunk(database, ids, status, reason) {
+  const placeholders = ids.map(() => '?').join(',');
+  const { results } = await database.prepare(
+    `SELECT id FROM members WHERE id IN (${placeholders})`
+  ).bind(...ids).all();
+  const existingIds = results.map((row) => row.id);
+  if (existingIds.length === 0) return 0;
+
+  const updates = ['status = ?', 'updated_at = CURRENT_TIMESTAMP'];
+  const values = [status];
+  if (status === 'active') {
+    const now = new Date();
+    const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+    updates.push('approved_at = CURRENT_TIMESTAMP', 'expires_at = ?');
+    values.push(`${year}-08-31`);
+  }
+
+  await database.prepare(
+    `UPDATE members SET ${updates.join(', ')} WHERE id IN (${existingIds.map(() => '?').join(',')})`
+  ).bind(...values, ...existingIds).run();
+
+  await database.batch(existingIds.map((id) => database.prepare(`
+    INSERT INTO membership_history (member_id, new_status, reason)
+    VALUES (?, ?, ?)
+  `).bind(id, status, reason || 'Batch update by admin')));
+
+  return existingIds.length;
+}
+
 /**
  * Batch approve/reject members
  * POST /api/admin/members/batch
  */
 export const batchUpdateMembers = adminOnly(async (request, env) => {
   try {
-    const body = await request.json();
+    const body = await readJsonObject(request);
+    if (!body) {
+      return error(INVALID_BODY, 400);
+    }
+    const validationError = validateBatchBody(body);
+    if (validationError) {
+      return error(validationError, 400);
+    }
+
     const { memberIds, status, reason } = body;
-
-    if (!Array.isArray(memberIds) || memberIds.length === 0) {
-      return error('No members specified', 400);
-    }
-    if (!['active', 'rejected', 'expired'].includes(status)) {
-      return error('Invalid status', 400);
+    const ids = [...new Set(memberIds)];
+    let updated = 0;
+    for (let i = 0; i < ids.length; i += BATCH_CHUNK_SIZE) {
+      updated += await updateBatchChunk(env.DB, ids.slice(i, i + BATCH_CHUNK_SIZE), status, reason);
     }
 
-    const placeholders = memberIds.map(() => '?').join(',');
-    const updates = ['status = ?', 'updated_at = CURRENT_TIMESTAMP'];
-    const values = [status];
-
-    if (status === 'active') {
-      updates.push('approved_at = CURRENT_TIMESTAMP');
-      const now = new Date();
-      const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
-      updates.push('expires_at = ?');
-      values.push(`${year}-08-31`);
+    if (updated === 0) {
+      return error('No matching members found', 404);
     }
-
-    await env.DB.prepare(`
-      UPDATE members SET ${updates.join(', ')} WHERE id IN (${placeholders})
-    `).bind(...values, ...memberIds).run();
-
-    // Log changes
-    for (const id of memberIds) {
-      await env.DB.prepare(`
-        INSERT INTO membership_history (member_id, new_status, reason)
-        VALUES (?, ?, ?)
-      `).bind(id, status, reason || 'Batch update by admin').run();
-    }
-
-    return success(`${memberIds.length} member(s) updated successfully`);
+    return success(`${updated} member(s) updated successfully`);
   } catch (error_) {
     console.error('Batch update error:', error_);
     return error('Failed to update members', 500);
@@ -494,7 +591,8 @@ export const exportMembers = adminOnly(async (request, env) => {
     }).join(','));
 
     const csvContent = [headers.join(','), ...rows].join('\n');
-    const filename = status ? `members_${status}.csv` : 'members.csv';
+    // The status comes from the query string: keep it safe for a header value
+    const filename = status ? `members_${status.replaceAll(/\W/g, '_')}.csv` : 'members.csv';
 
     return csv(csvContent, filename);
   } catch (error_) {
@@ -558,7 +656,10 @@ const VALID_KEYS = {
  */
 export const updateSettings = adminOnly(async (request, env) => {
   try {
-    const body = await request.json();
+    const body = await readJsonObject(request);
+    if (!body) {
+      return error(INVALID_BODY, 400);
+    }
     const keys = Object.keys(body);
 
     const unknownKeys = keys.filter((key) => !Object.hasOwn(VALID_KEYS, key));
@@ -586,26 +687,74 @@ export const updateSettings = adminOnly(async (request, env) => {
   }
 });
 
-/**
- * Parse CSV line handling quoted values
- */
-function parseCSVLine(line) {
-  const values = [];
-  let current = '';
-  let inQuotes = false;
+/** Cell separators accepted outside quotes (comma, tab and semicolon exports). */
+const CSV_DELIMITERS = new Set([',', '\t', ';']);
 
-  for (const char of line) {
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if ((char === ',' || char === '\t' || char === ';') && !inQuotes) {
-      values.push(current.trim());
-      current = '';
+/**
+ * Read a quoted cell body starting just after its opening quote.
+ * A doubled quote ("") is a literal quote; a lone quote ends the cell.
+ * @returns {{ value: string, next: number }} cell text and index after the closing quote
+ */
+function readQuotedCell(text, start) {
+  let value = '';
+  let index = start;
+  while (index < text.length) {
+    if (text[index] !== '"') {
+      value += text[index++];
+    } else if (text[index + 1] === '"') {
+      value += '"';
+      index += 2;
     } else {
-      current += char;
+      return { value, next: index + 1 };
     }
   }
-  values.push(current.trim());
-  return values;
+  return { value, next: index };
+}
+
+/**
+ * Parse CSV text into rows of trimmed cells.
+ * Handles quoted cells (embedded delimiters, newlines and doubled quotes),
+ * LF/CRLF/CR line endings and a leading BOM. Blank rows are dropped. A quote
+ * only opens a quoted cell at the start of a cell, so a stray quote inside
+ * unquoted text is kept literally instead of swallowing the following rows.
+ * @param {string} text
+ * @returns {string[][]}
+ */
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let index = text.startsWith('\uFEFF') ? 1 : 0;
+
+  const endCell = () => {
+    row.push(cell.trim());
+    cell = '';
+  };
+  const endRow = () => {
+    endCell();
+    if (row.some(Boolean)) rows.push(row);
+    row = [];
+  };
+
+  while (index < text.length) {
+    const char = text[index];
+    if (char === '"' && cell.trim() === '') {
+      const quoted = readQuotedCell(text, index + 1);
+      cell = quoted.value;
+      index = quoted.next;
+    } else if (CSV_DELIMITERS.has(char)) {
+      endCell();
+      index++;
+    } else if (char === '\n' || char === '\r') {
+      index += char === '\r' && text[index + 1] === '\n' ? 2 : 1;
+      endRow();
+    } else {
+      cell += char;
+      index++;
+    }
+  }
+  endRow();
+  return rows;
 }
 
 /**
@@ -614,6 +763,9 @@ function parseCSVLine(line) {
 function mapStatusFromLabel(label) {
   if (!label) return 'active';
   const normalized = label.toLowerCase().trim();
+
+  // Internal values, as written by the CSV export (e.g. "treasurer")
+  if (VALID_STATUSES.includes(normalized)) return normalized;
 
   const mappings = {
     'membre actif': 'active',
@@ -675,18 +827,26 @@ function parseCSVHeaders(rawHeaders) {
 }
 
 /**
- * Extract member data from CSV row
+ * Extract member data from a parsed CSV row. Blank or absent optional cells
+ * become null so they never overwrite stored values; insert-time defaults are
+ * applied in importOrUpdateMember.
  */
 function extractMemberFromRow(values, headerMap) {
+  const cell = (field) => {
+    const index = headerMap[field];
+    return index === undefined ? null : values[index]?.trim() || null;
+  };
+  const statusLabel = cell('status');
+
   return {
-    firstName: values[headerMap.firstName]?.trim(),
-    lastName: values[headerMap.lastName]?.trim(),
-    email: values[headerMap.email]?.toLowerCase().trim(),
-    phone: headerMap.phone === undefined ? null : values[headerMap.phone]?.trim(),
-    studentId: headerMap.studentId === undefined ? null : values[headerMap.studentId]?.trim(),
-    enrollmentNumber: headerMap.enrollmentNumber === undefined ? null : values[headerMap.enrollmentNumber]?.trim(),
-    enrollmentTrack: headerMap.enrollmentTrack === undefined ? 'Autre' : values[headerMap.enrollmentTrack]?.trim(),
-    status: mapStatusFromLabel(headerMap.status === undefined ? null : values[headerMap.status]?.trim())
+    firstName: cell('firstName'),
+    lastName: cell('lastName'),
+    email: cell('email')?.toLowerCase() ?? null,
+    phone: cell('phone'),
+    studentId: cell('studentId'),
+    enrollmentNumber: cell('enrollmentNumber'),
+    enrollmentTrack: cell('enrollmentTrack'),
+    status: statusLabel ? mapStatusFromLabel(statusLabel) : null
   };
 }
 
@@ -740,7 +900,7 @@ async function importOrUpdateMember(database, member, stats) {
         phone = COALESCE(?, phone), student_id = COALESCE(?, student_id),
         enrollment_number = COALESCE(?, enrollment_number),
         enrollment_track = COALESCE(?, enrollment_track),
-        status = ?, updated_at = CURRENT_TIMESTAMP
+        status = COALESCE(?, status), updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).bind(
       member.firstName, member.lastName, member.phone, member.studentId,
@@ -748,9 +908,11 @@ async function importOrUpdateMember(database, member, stats) {
     ).run();
     stats.updated++;
   } else {
+    const status = member.status ?? 'active';
     const now = new Date();
     const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
-    const expiresAt = member.status !== 'pending' && member.status !== 'rejected' ? `${year}-08-31` : null;
+    const isApproved = status !== 'pending' && status !== 'rejected';
+    const expiresAt = isApproved ? `${year}-08-31` : null;
 
     await database.prepare(`
       INSERT INTO members (first_name, last_name, email, phone, student_id,
@@ -758,8 +920,8 @@ async function importOrUpdateMember(database, member, stats) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       member.firstName, member.lastName, member.email, member.phone, member.studentId,
-      member.enrollmentNumber, member.enrollmentTrack, member.status,
-      member.status === 'pending' ? null : new Date().toISOString(), expiresAt
+      member.enrollmentNumber, member.enrollmentTrack ?? 'Autre', status,
+      isApproved ? new Date().toISOString() : null, expiresAt
     ).run();
     stats.imported++;
   }
@@ -772,19 +934,22 @@ async function importOrUpdateMember(database, member, stats) {
  */
 export const importCSV = adminOnly(async (request, env) => {
   try {
-    const body = await request.json();
+    const body = await readJsonObject(request);
+    if (!body) {
+      return error(INVALID_BODY, 400);
+    }
     const { csv: csvData } = body;
 
     if (!csvData || typeof csvData !== 'string') {
       return error('CSV data is required', 400);
     }
 
-    const lines = csvData.trim().split('\n');
-    if (lines.length < 2) {
+    const rows = parseCSV(csvData);
+    if (rows.length < 2) {
       return error('CSV must contain at least a header and one data row', 400);
     }
 
-    const headerMap = parseCSVHeaders(parseCSVLine(lines[0]));
+    const headerMap = parseCSVHeaders(rows[0]);
 
     if (headerMap.firstName === undefined || headerMap.lastName === undefined || headerMap.email === undefined) {
       return error('CSV must have Prénom, Nom, and Email columns', 400);
@@ -803,11 +968,8 @@ export const importCSV = adminOnly(async (request, env) => {
       bureauMap.set(m.status, m);
     }
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      const member = extractMemberFromRow(parseCSVLine(line), headerMap);
+    for (let i = 1; i < rows.length; i++) {
+      const member = extractMemberFromRow(rows[i], headerMap);
       if (!validateImportRow(member, i + 1, bureauInImport, bureauMap, stats)) continue;
 
       try {
