@@ -1,6 +1,7 @@
 /* global Event */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mountAdminDom, byId, settle, currentToast, click, change } from './helpers.js';
+import { DEFAULT_ACADEMIC_YEAR, DEFAULT_ENROLLMENT_TRACKS } from '../../src/shared/membership.js';
 
 let settings;
 let api;
@@ -16,8 +17,10 @@ beforeEach(async () => {
 afterEach(() => vi.useRealTimers());
 
 describe('loadSettings', () => {
+  // GET /api/admin/settings returns PARSED values: only a real boolean false closes the memberships,
+  // and a missing value means open (like the server's default). The strings "true"/"false" are not special.
   it.each([
-    [true, true], ['true', true], [false, false], ['false', false], [undefined, false], ['yes', false]
+    [true, true], [false, false], [undefined, true]
   ])('shows membership_open=%j as checked=%s', async (value, checked) => {
     api.mockResolvedValue({ settings: { membership_open: value, current_year: '2026-2027' } });
     byId('setting-membership-open').checked = !checked;
@@ -35,7 +38,19 @@ describe('loadSettings', () => {
 
     api.mockResolvedValueOnce({ settings: {} });
     await settings.loadSettings(api);
-    expect(byId('setting-current-year').value).toBe('2024-2025');
+    expect(byId('setting-current-year').value).toBe(DEFAULT_ACADEMIC_YEAR);
+  });
+
+  it('offers the configured tracks in the member edit form, or the defaults when none is configured', async () => {
+    const options = () => [...byId('admin-cursus-list').querySelectorAll('option')].map((option) => option.value);
+
+    api.mockResolvedValueOnce({ settings: { enrollment_tracks: ['Alpha', 'Be"ta'] } });
+    await settings.loadSettings(api);
+    expect(options()).toEqual(['Alpha', 'Be"ta']);
+
+    api.mockResolvedValueOnce({ settings: {} });
+    await settings.loadSettings(api);
+    expect(options()).toEqual([...DEFAULT_ENROLLMENT_TRACKS]);
   });
 
   it('leaves the save button disabled (nothing to save yet)', async () => {
@@ -52,7 +67,7 @@ describe('loadSettings', () => {
 });
 
 describe('saveSettings', () => {
-  it.each([[true, 'true'], [false, 'false']])('sends membership_open=%s as the string "%s"', async (checked, sent) => {
+  it.each([[true], [false]])('sends membership_open=%s as a real boolean', async (checked) => {
     api.mockResolvedValue({ success: true });
     byId('setting-membership-open').checked = checked;
     byId('setting-current-year').value = '2026-2027';
@@ -62,7 +77,7 @@ describe('saveSettings', () => {
     const [endpoint, options] = api.mock.calls[0];
     expect(endpoint).toBe('/admin/settings');
     expect(options.method).toBe('PUT');
-    expect(JSON.parse(options.body)).toEqual({ membership_open: sent, current_year: '2026-2027' });
+    expect(JSON.parse(options.body)).toEqual({ membership_open: checked, current_year: '2026-2027' });
   });
 
   it('toasts success and disables the save button again', async () => {
@@ -77,12 +92,12 @@ describe('saveSettings', () => {
   });
 
   it('shows the server validation message and keeps the button enabled on failure', async () => {
-    api.mockRejectedValue(new Error('Invalid value for setting key(s): current_year'));
+    api.mockRejectedValue(new Error('Valeur invalide pour : current_year'));
     byId('save-settings-btn').disabled = false;
 
     await settings.saveSettings(api);
 
-    expect(currentToast().textContent).toBe('Invalid value for setting key(s): current_year');
+    expect(currentToast().textContent).toBe('Valeur invalide pour : current_year');
     expect(currentToast().classList.contains('error')).toBe(true);
     expect(byId('save-settings-btn').disabled).toBe(false);
   });

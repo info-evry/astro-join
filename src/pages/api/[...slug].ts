@@ -1,15 +1,15 @@
 /**
- * Catch-all API route that delegates to the router
+ * Catch-all API route: CORS, router dispatch and safe error answers come from
+ * astro-core's createApiRoute.
  */
 
-import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { corsHeaders, error } from 'astro-core/router';
+import { createApiRoute } from 'astro-core/api-route';
 import { createRouter } from '../../routes.js';
 
-const router = createRouter();
-
-// Allowed origins for CORS - production and development origins
+// Allowed origins for CORS, same list as `allowedOriginsFor('join')` in the
+// maestro repo's src/sites.ts (a test there compares them). The first entry is
+// the fallback for unknown origins.
 const ALLOWED_ORIGINS = [
   // Production
   'https://asso.info-evry.fr',
@@ -24,57 +24,9 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:3000'
 ];
 
-// Get validated CORS origin from request header
-function getCorsOrigin(request: Request): string {
-  const origin = request.headers.get('Origin');
-  // Only allow whitelisted origins
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    return origin;
-  }
-  // For same-origin requests (no Origin header), use the request URL origin
-  // This is safe because the browser enforces Origin header for cross-origin requests
-  if (!origin) {
-    return new URL(request.url).origin;
-  }
-  // Reject unknown origins by returning the first allowed origin
-  // This prevents reflecting arbitrary origins
-  return ALLOWED_ORIGINS[0];
-}
-
-export const ALL: APIRoute = async ({ request, locals }) => {
-  const ctx = locals.cfContext;
-  const origin = getCorsOrigin(request);
-
-  // Handle CORS preflight
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders(origin)
-    });
-  }
-
-  try {
-    const response = await router.handle(request, env, ctx);
-    if (response) {
-      // Add CORS headers to all API responses
-      const headers = new Headers(response.headers);
-      for (const [k, v] of Object.entries(corsHeaders(origin))) headers.set(k, v);
-      return new Response(response.body, {
-        status: response.status,
-        headers
-      });
-    }
-    return error('Not found', 404);
-  } catch (error_) {
-    // Log error type only, not full stack trace (security)
-    const errMsg = error_ instanceof Error ? error_.message : 'Unknown error';
-    console.error('API error:', errMsg);
-    return error('Internal server error', 500);
-  }
-};
-
-// Export individual methods to ensure Astro handles them
-export const GET = ALL;
-export const POST = ALL;
-export const PUT = ALL;
-export const DELETE = ALL;
+export const { ALL, GET, POST, PUT, DELETE, OPTIONS } = createApiRoute({
+  router: createRouter(),
+  allowedOrigins: ALLOWED_ORIGINS,
+  getEnv: () => env,
+  getCtx: (locals: { cfContext?: unknown }) => locals.cfContext
+});

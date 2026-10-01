@@ -1,7 +1,7 @@
 /* global document, Event, HTMLAnchorElement */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  mountAdminDom, byId, makeMember, csvResponse, settle, currentToast, isHidden
+  mountAdminDom, byId, makeMember, csvResponse, settle, currentToast, isHidden, click
 } from './helpers.js';
 
 let actions;
@@ -26,8 +26,9 @@ beforeEach(async () => {
 
 afterEach(() => vi.useRealTimers());
 
+/** Click the confirm button the way a user would (astro-design's confirmAction owns the listener). */
 const confirm = async () => {
-  byId('confirm-btn').onclick();
+  click(byId('confirm-btn'));
   await settle();
 };
 const toastText = () => currentToast()?.textContent;
@@ -224,40 +225,68 @@ describe('bulk actions', () => {
     expect(byId('confirm-message').textContent).toContain('"mystery"');
   });
 
-  it('bulkDelete warns it is irreversible with a danger button', () => {
+  it('bulkDelete warns it is irreversible with a danger button, in plain text', () => {
     select(1, 2);
     actions.bulkDelete(api, loadData);
     expect(byId('confirm-message').textContent).toContain('Supprimer définitivement 2 membre(s) ?');
     expect(byId('confirm-message').textContent).toContain('irréversible');
+    expect(byId('confirm-message').children).toHaveLength(0);
     expect(byId('confirm-btn').className).toBe('btn btn-danger');
     expect(byId('confirm-btn').textContent).toBe('Supprimer');
   });
 
-  it('bulkDelete deletes each selected member in order, then reloads', async () => {
+  it('bulkDelete sends ONE DELETE /admin/members/batch for the whole selection, then reloads', async () => {
+    api.mockResolvedValue({ success: true, deleted: 3 });
     select(1, 2, 3);
     actions.bulkDelete(api, loadData);
     await confirm();
 
-    expect(api.mock.calls.map(([endpoint, options]) => `${options.method} ${endpoint}`)).toEqual([
-      'DELETE /admin/members/1', 'DELETE /admin/members/2', 'DELETE /admin/members/3'
-    ]);
+    expect(api).toHaveBeenCalledTimes(1);
+    const [endpoint, options] = api.mock.calls[0];
+    expect(endpoint).toBe('/admin/members/batch');
+    expect(options.method).toBe('DELETE');
+    expect(JSON.parse(options.body)).toEqual({ ids: [1, 2, 3] });
     expect(toastText()).toBe('3 membre(s) supprimé(s)');
     expect(state.selectedMembers.size).toBe(0);
     expect(isHidden('confirm-modal')).toBe(true);
     expect(loadData).toHaveBeenCalledTimes(1);
   });
 
-  it('bulkDelete carries on after a failure and reports only the real count', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    api.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({});
+  it('bulkDelete reports the count the server really deleted', async () => {
+    api.mockResolvedValue({ success: true, deleted: 2 });
     select(1, 2, 3);
     actions.bulkDelete(api, loadData);
     await confirm();
-
-    expect(api).toHaveBeenCalledTimes(3);
     expect(toastText()).toBe('2 membre(s) supprimé(s)');
-    expect(consoleError).toHaveBeenCalledTimes(1);
-    expect(loadData).toHaveBeenCalledTimes(1);
+  });
+
+  it('bulkDelete splits a selection above the server cap (1000 ids) into several requests', async () => {
+    api.mockImplementation(async (_endpoint, options) => ({ success: true, deleted: JSON.parse(options.body).ids.length }));
+    select(...Array.from({ length: 2500 }, (_, i) => i + 1));
+    actions.bulkDelete(api, loadData);
+    await confirm();
+
+    expect(api.mock.calls.map(([, options]) => JSON.parse(options.body).ids.length)).toEqual([1000, 1000, 500]);
+    expect(toastText()).toBe('2500 membre(s) supprimé(s)');
+  });
+
+  it('bulkDelete keeps the selection and the modal open when the request fails', async () => {
+    api.mockRejectedValueOnce(new Error('Trop de membres (maximum 1000)'));
+    select(1, 2);
+    actions.bulkDelete(api, loadData);
+    await confirm();
+
+    expect(toastText()).toBe('Trop de membres (maximum 1000)');
+    expect(state.selectedMembers).toEqual(new Set([1, 2]));
+    expect(isHidden('confirm-modal')).toBe(false);
+    expect(loadData).not.toHaveBeenCalled();
+  });
+
+  it('bulkSetStatus also splits a selection above the cap', async () => {
+    select(...Array.from({ length: 1001 }, (_, i) => i + 1));
+    actions.bulkSetStatus('expired', api, loadData);
+    await confirm();
+    expect(api.mock.calls.map(([, options]) => JSON.parse(options.body).memberIds.length)).toEqual([1000, 1]);
   });
 });
 

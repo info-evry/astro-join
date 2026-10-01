@@ -8,6 +8,11 @@ CREATE TABLE IF NOT EXISTS members (
   last_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   student_id TEXT,
+  -- Also added by migrate-002-enrollment-number.sql to databases created before
+  -- it was part of this schema. Its index (idx_members_enrollment_number) is only
+  -- created by that migration: schema.sql runs on every deploy, including against
+  -- databases whose column does not exist yet, and an index here would fail there.
+  enrollment_number TEXT,
   phone TEXT,
   telegram TEXT,
   discord TEXT,
@@ -46,7 +51,12 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- `status` is free text on purpose (no CHECK): the values the application reads
+-- and writes are listed in src/shared/membership.js (STATUS_LABELS).
+
 -- Insert default settings
+-- ('current_year' must equal DEFAULT_ACADEMIC_YEAR in src/shared/membership.js:
+-- a test checks it)
 INSERT OR IGNORE INTO settings (key, value) VALUES
   ('membership_open', 'true'),
   ('current_year', '2024-2025'),

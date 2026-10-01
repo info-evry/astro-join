@@ -1,15 +1,19 @@
 /**
  * Members tab: single-member CRUD (edit/delete/approve) and bulk actions
  * against the currently selected members, plus CSV export.
+ *
+ * Confirmations go through astro-design's `confirmAction` (plain-text
+ * messages, one click handler at a time, errors toasted, modal closed on
+ * success) and the export through `downloadFromApi`.
  */
 import { $ } from '@info-evry/astro-design/scripts/dom';
 import { toastSuccess, toastError } from '@info-evry/astro-design/scripts/toast';
 import { closeModal, openModal } from '@info-evry/astro-design/scripts/modal';
-import { state, STATUS_LABELS } from '../state.js';
-
-const CONFIRM_MODAL = 'confirm-modal';
-const CONFIRM_MESSAGE = 'confirm-message';
-const CONFIRM_BTN = 'confirm-btn';
+import { confirmAction } from '@info-evry/astro-design/scripts/confirm';
+import { downloadFromApi } from '@info-evry/astro-design/scripts/download';
+import { chunk } from 'astro-core/d1';
+import { MAX_BATCH_IDS, statusLabel } from '../../../shared/membership.js';
+import { state } from '../state.js';
 
 export function editMember(id) {
   const member = state.members.find((m) => m.id === id);
@@ -28,21 +32,16 @@ export function editMember(id) {
 
 export function confirmDeleteMember(id, api, loadData) {
   const member = state.members.find((m) => m.id === id);
-  $(CONFIRM_MESSAGE).textContent = `Êtes-vous sûr de vouloir supprimer ${member?.first_name} ${member?.last_name} ?`;
-  const confirmBtn = $(CONFIRM_BTN);
-  confirmBtn.className = 'btn btn-danger';
-  confirmBtn.textContent = 'Confirmer';
-  confirmBtn.onclick = async () => {
-    try {
+  const name = member ? `${member.first_name} ${member.last_name}` : 'ce membre';
+  confirmAction({
+    message: `Êtes-vous sûr de vouloir supprimer ${name} ?`,
+    confirmLabel: 'Confirmer',
+    onConfirm: async () => {
       await api(`/admin/members/${id}`, { method: 'DELETE' });
       toastSuccess('Membre supprimé');
-      closeModal(CONFIRM_MODAL);
       loadData();
-    } catch (error) {
-      toastError(error.message);
     }
-  };
-  openModal(CONFIRM_MODAL);
+  });
 }
 
 export async function handleMemberSubmit(e, api, loadData) {
@@ -70,80 +69,85 @@ export async function handleMemberSubmit(e, api, loadData) {
   }
 }
 
-async function runBulk(api, loadData, ids, payload, successMessage) {
-  try {
-    await api('/admin/members/batch', { method: 'POST', body: JSON.stringify({ memberIds: ids, ...payload }) });
-    toastSuccess(successMessage);
-    state.selectedMembers.clear();
-    closeModal(CONFIRM_MODAL);
-    loadData();
-  } catch (error) {
-    toastError(error.message);
-  }
+/** Selection to act on, or null (and nothing to do) when empty. */
+function selectedIds() {
+  return state.selectedMembers.size === 0 ? null : [...state.selectedMembers];
+}
+
+/** Confirm, then run a status change on the selection (one request per MAX_BATCH_IDS ids). */
+function confirmBulkStatus({ message, confirmLabel, variant, status, reason, successMessage, api, loadData, ids }) {
+  confirmAction({
+    message,
+    confirmLabel,
+    variant,
+    onConfirm: async () => {
+      for (const group of chunk(ids, MAX_BATCH_IDS)) {
+        await api('/admin/members/batch', { method: 'POST', body: JSON.stringify({ memberIds: group, status, reason }) });
+      }
+      toastSuccess(successMessage);
+      state.selectedMembers.clear();
+      loadData();
+    }
+  });
 }
 
 export function bulkApprove(api, loadData) {
-  if (state.selectedMembers.size === 0) return;
-  const ids = [...state.selectedMembers];
-  $(CONFIRM_MESSAGE).textContent = `Approuver ${ids.length} membre(s) sélectionné(s) ?`;
-  const confirmBtn = $(CONFIRM_BTN);
-  confirmBtn.className = 'btn btn-primary';
-  confirmBtn.textContent = 'Approuver';
-  confirmBtn.onclick = () => runBulk(api, loadData, ids, { status: 'active', reason: 'Bulk approved by admin' }, `${ids.length} membre(s) approuvé(s)`);
-  openModal(CONFIRM_MODAL);
+  const ids = selectedIds();
+  if (!ids) return;
+  confirmBulkStatus({
+    message: `Approuver ${ids.length} membre(s) sélectionné(s) ?`,
+    confirmLabel: 'Approuver',
+    variant: 'primary',
+    status: 'active',
+    reason: 'Bulk approved by admin',
+    successMessage: `${ids.length} membre(s) approuvé(s)`,
+    api,
+    loadData,
+    ids
+  });
 }
 
 export function bulkSetStatus(newStatus, api, loadData) {
-  if (state.selectedMembers.size === 0) return;
-  const ids = [...state.selectedMembers];
-  const statusLabel = STATUS_LABELS[newStatus] || newStatus;
-  $(CONFIRM_MESSAGE).textContent = `Définir ${ids.length} membre(s) comme "${statusLabel}" ?`;
-  const confirmBtn = $(CONFIRM_BTN);
-  confirmBtn.className = 'btn btn-primary';
-  confirmBtn.textContent = 'Confirmer';
-  confirmBtn.onclick = () => runBulk(api, loadData, ids, { status: newStatus, reason: `Bulk status change to ${newStatus} by admin` }, `${ids.length} membre(s) mis à jour`);
-  openModal(CONFIRM_MODAL);
+  const ids = selectedIds();
+  if (!ids) return;
+  confirmBulkStatus({
+    message: `Définir ${ids.length} membre(s) comme "${statusLabel(newStatus)}" ?`,
+    confirmLabel: 'Confirmer',
+    variant: 'primary',
+    status: newStatus,
+    reason: `Bulk status change to ${newStatus} by admin`,
+    successMessage: `${ids.length} membre(s) mis à jour`,
+    api,
+    loadData,
+    ids
+  });
 }
 
+/** Delete the selection with DELETE /admin/members/batch (one request per MAX_BATCH_IDS ids). */
 export function bulkDelete(api, loadData) {
-  if (state.selectedMembers.size === 0) return;
-  const ids = [...state.selectedMembers];
-  $(CONFIRM_MESSAGE).innerHTML = `<strong style="color: var(--color-error);">Supprimer définitivement ${ids.length} membre(s) ?</strong><br><small>Cette action est irréversible.</small>`;
-  const confirmBtn = $(CONFIRM_BTN);
-  confirmBtn.className = 'btn btn-danger';
-  confirmBtn.textContent = 'Supprimer';
-  confirmBtn.onclick = async () => {
-    let deleted = 0;
-    for (const id of ids) {
-      try {
-        await api(`/admin/members/${id}`, { method: 'DELETE' });
-        deleted++;
-      } catch (error) {
-        console.error(`Failed to delete member ${id}:`, error);
+  const ids = selectedIds();
+  if (!ids) return;
+  confirmAction({
+    message: `Supprimer définitivement ${ids.length} membre(s) ? Cette action est irréversible.`,
+    confirmLabel: 'Supprimer',
+    onConfirm: async () => {
+      let deleted = 0;
+      for (const group of chunk(ids, MAX_BATCH_IDS)) {
+        const result = await api('/admin/members/batch', { method: 'DELETE', body: JSON.stringify({ ids: group }) });
+        deleted += result?.deleted ?? group.length;
       }
+      toastSuccess(`${deleted} membre(s) supprimé(s)`);
+      state.selectedMembers.clear();
+      loadData();
     }
-    toastSuccess(`${deleted} membre(s) supprimé(s)`);
-    state.selectedMembers.clear();
-    closeModal(CONFIRM_MODAL);
-    loadData();
-  };
-  openModal(CONFIRM_MODAL);
+  });
 }
 
 export async function handleExport(api) {
   try {
     const status = $('filter-status').value;
-    const url = status ? `/admin/export?status=${status}` : '/admin/export';
-    const response = await api(url);
-    const blob = await response.blob();
-    const downloadUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = status ? `members_${status}.csv` : 'members.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(downloadUrl);
+    const endpoint = status ? `/admin/export?status=${encodeURIComponent(status)}` : '/admin/export';
+    await downloadFromApi(api, endpoint, status ? `members_${status}.csv` : 'members.csv');
   } catch (error) {
     toastError(error.message);
   }

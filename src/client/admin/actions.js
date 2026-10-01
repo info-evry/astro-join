@@ -1,20 +1,28 @@
 /**
  * Admin action/change delegation
  *
- * Builds the lookup maps consumed by the delegated `click`/`change`
- * listeners and wires those listeners up, replacing inline onclick/onchange
- * handlers and the `window.adminDashboard` global with data-action /
- * data-change attributes read from the clicked/changed element's dataset.
+ * Builds the lookup maps consumed by astro-design's `bindDelegation` (called
+ * from main.js): `data-action` (click) and `data-change` (change) attributes
+ * replace inline handlers and globals.
  */
-/* eslint-env browser */
 
+import { numberOrNull } from '@info-evry/astro-design/scripts/dom';
 import { toggleSort, toggleSelectAll, toggleMemberSelection } from './features/members.js';
 import { editMember, confirmDeleteMember, bulkApprove, bulkSetStatus, bulkDelete } from './features/member-actions.js';
 import { approveMember, rejectMember, approveAll } from './features/pending.js';
 
+/** The member id of an action element, or null when its data-member-id is missing or not a number. */
+const memberIdOf = (el) => numberOrNull(el.dataset.memberId);
+
+/** Run `handler(id)` for the element's member id; ignore elements without a usable one. */
+const withMemberId = (handler) => (el) => {
+  const id = memberIdOf(el);
+  return id === null ? undefined : handler(id);
+};
+
 /**
  * Build the click-action ("actions") and change-action ("changes") lookup
- * maps used by the delegated document listeners.
+ * maps used by `bindDelegation`.
  * @param {Object} deps
  * @param {Function} deps.api - API client function
  * @param {Function} deps.loadData - Reload callback
@@ -22,10 +30,10 @@ import { approveMember, rejectMember, approveAll } from './features/pending.js';
  */
 export function buildActions({ api, loadData }) {
   const actions = {
-    'edit-member': (el) => editMember(Number(el.dataset.memberId)),
-    'confirm-delete-member': (el) => confirmDeleteMember(Number(el.dataset.memberId), api, loadData),
-    'approve-member': (el) => approveMember(Number(el.dataset.memberId), api, loadData),
-    'reject-member': (el) => rejectMember(Number(el.dataset.memberId), api, loadData),
+    'edit-member': withMemberId((id) => editMember(id)),
+    'confirm-delete-member': withMemberId((id) => confirmDeleteMember(id, api, loadData)),
+    'approve-member': withMemberId((id) => approveMember(id, api, loadData)),
+    'reject-member': withMemberId((id) => rejectMember(id, api, loadData)),
     'sort-members': (el) => toggleSort(el.dataset.field),
     'approve-all': () => approveAll(api, loadData),
     'bulk-approve': () => bulkApprove(api, loadData),
@@ -35,32 +43,11 @@ export function buildActions({ api, loadData }) {
 
   const changes = {
     'toggle-select-all': (el) => toggleSelectAll(el.checked),
-    'toggle-member-select': (el) => toggleMemberSelection(Number(el.dataset.memberId), el.checked)
+    'toggle-member-select': (el) => {
+      const id = memberIdOf(el);
+      if (id !== null) toggleMemberSelection(id, el.checked);
+    }
   };
 
   return { actions, changes };
-}
-
-/**
- * Bind the delegated `click` and `change` listeners on document.
- * @param {Object<string, Function>} actions - Click action map (data-action)
- * @param {Object<string, Function>} changes - Change action map (data-change)
- */
-export function bindDelegation(actions, changes) {
-  document.addEventListener('click', (e) => {
-    const el = e.target.closest('[data-action]');
-    if (!el) return;
-    // Own keys only: inherited names like "__proto__" are not actions
-    const fn = Object.hasOwn(actions, el.dataset.action) ? actions[el.dataset.action] : undefined;
-    if (fn) {
-      e.preventDefault?.();
-      fn(el, e);
-    }
-  });
-
-  document.addEventListener('change', (e) => {
-    const el = e.target.closest('[data-change]');
-    if (!el) return;
-    if (Object.hasOwn(changes, el.dataset.change)) changes[el.dataset.change](el, e);
-  });
 }

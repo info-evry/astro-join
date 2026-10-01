@@ -69,7 +69,8 @@ export const ADMIN_DOM = `
       <input type="text" id="member-form-lastname">
       <input type="email" id="member-form-email">
       <input type="text" id="member-form-studentid">
-      <input type="text" id="member-form-track">
+      <input type="text" id="member-form-track" list="admin-cursus-list">
+      <datalist id="admin-cursus-list"></datalist>
       <select id="member-form-status">
         <option value="pending">En attente</option>
         <option value="active">Membre actif</option>
@@ -79,8 +80,9 @@ export const ADMIN_DOM = `
     </form>
   </div>
   <div id="confirm-modal" class="modal hidden">
+    <h3>Confirmer l'action</h3>
     <p id="confirm-message"></p>
-    <button type="button" id="confirm-btn">Confirmer</button>
+    <button type="button" id="confirm-btn" class="btn btn-danger">Confirmer</button>
   </div>
 `;
 

@@ -1,29 +1,18 @@
 /**
  * Membership Application Form
  * Client-side form handling for membership applications
+ *
+ * Requests go through astro-design's `createPublicClient`: every failure is an
+ * `ApiError` with the server's French message and `code`, even when a proxy
+ * answers with an HTML error page.
  */
+import { createPublicClient } from '@info-evry/astro-design/scripts/public-client';
+import { escapeHtml } from '@info-evry/astro-design/scripts/dom';
+import { isValidEmail } from 'astro-core/validation';
+import { fillTrackList } from './datalist.js';
 
-/**
- * Get the API base URL from the meta tag
- */
-function getApiBase() {
-  const baseUrl = document.querySelector('meta[name="base-url"]')?.content || '';
-  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-}
-
-/**
- * Make an API request
- */
-async function api(endpoint, options = {}) {
-  const API_BASE = getApiBase();
-  const response = await fetch(`${API_BASE}/api${endpoint}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Request failed');
-  return data;
-}
+const MSG_CLOSED = "Les adhésions sont actuellement fermées. Revenez plus tard ou contactez l'association.";
+const SUBMIT_LABEL = 'Envoyer ma demande';
 
 /**
  * Collect form data
@@ -40,19 +29,6 @@ function collectFormData(form) {
     telegram: formData.get('telegram')?.toString().trim() || '',
     discord: formData.get('discord')?.toString().trim() || ''
   };
-}
-
-/**
- * Validate email format
- * Uses a simpler regex to avoid ReDoS vulnerability
- */
-function isValidEmail(email) {
-  // Simple check: contains @ with text before and after, and has a dot after @
-  if (!email || email.length > 254) return false;
-  const atIndex = email.indexOf('@');
-  if (atIndex < 1 || atIndex === email.length - 1) return false;
-  const domain = email.slice(atIndex + 1);
-  return domain.includes('.') && !domain.startsWith('.') && !domain.endsWith('.');
 }
 
 /**
@@ -76,16 +52,6 @@ function validateForm(data) {
 }
 
 /**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-/**
  * Show form errors
  */
 function showErrors(errors, errorsDiv) {
@@ -103,17 +69,45 @@ function hideErrors(errorsDiv) {
 }
 
 /**
- * Set loading state for submit button
+ * Set loading state for submit button (a closed form keeps it disabled)
  */
 function setLoading(submitBtn, loading) {
-  submitBtn.disabled = loading;
-  submitBtn.textContent = loading ? 'Envoi en cours...' : 'Envoyer ma demande';
+  submitBtn.disabled = loading || submitBtn.dataset.locked === 'true';
+  submitBtn.textContent = loading ? 'Envoi en cours...' : SUBMIT_LABEL;
+}
+
+/**
+ * Disable the whole form and explain why (membership closed by an admin).
+ */
+function closeForm(elements, message = MSG_CLOSED) {
+  elements.submitBtn.dataset.locked = 'true';
+  for (const control of elements.form.elements) control.disabled = true;
+  hideErrors(elements.errorsDiv);
+  if (elements.closedNotice) {
+    elements.closedNotice.textContent = message;
+    elements.closedNotice.classList.remove('hidden');
+  }
+}
+
+/**
+ * Apply the public configuration: the configured tracks, and a closed form
+ * when membership is closed. A failure here leaves the form usable: the
+ * server enforces the same rules when the form is submitted.
+ */
+async function applyConfig(client, elements) {
+  try {
+    const { config } = await client.get('/config');
+    fillTrackList(document.getElementById('cursus-list'), config?.enrollmentTracks);
+    if (config?.membershipOpen === false) closeForm(elements);
+  } catch (error) {
+    console.error('Could not load the membership configuration:', error);
+  }
 }
 
 /**
  * Handle form submission
  */
-async function handleSubmit(e, elements) {
+async function handleSubmit(e, elements, client) {
   e.preventDefault();
 
   const data = collectFormData(elements.form);
@@ -128,16 +122,17 @@ async function handleSubmit(e, elements) {
   setLoading(elements.submitBtn, true);
 
   try {
-    const result = await api('/apply', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
+    const result = await client.post('/apply', data);
 
-    elements.successMessage.textContent = result.message || 'Votre demande d\'adhésion a bien été enregistrée.';
+    elements.successMessage.textContent = result?.message || 'Votre demande d\'adhésion a bien été enregistrée.';
     elements.successModal.classList.remove('hidden');
 
   } catch (error) {
-    showErrors([error.message], elements.errorsDiv);
+    if (error.code === 'membership_closed') {
+      closeForm(elements, error.message);
+    } else {
+      showErrors([error.message], elements.errorsDiv);
+    }
   } finally {
     setLoading(elements.submitBtn, false);
   }
@@ -150,6 +145,7 @@ function initMembershipForm() {
   const elements = {
     form: document.getElementById('membership-form'),
     errorsDiv: document.getElementById('form-errors'),
+    closedNotice: document.getElementById('membership-closed'),
     submitBtn: document.getElementById('submit-btn'),
     successModal: document.getElementById('success-modal'),
     successMessage: document.getElementById('success-message')
@@ -160,8 +156,10 @@ function initMembershipForm() {
     return;
   }
 
+  const client = createPublicClient();
+
   // Form submit handler
-  elements.form.addEventListener('submit', (e) => handleSubmit(e, elements));
+  elements.form.addEventListener('submit', (e) => handleSubmit(e, elements, client));
 
   // Close modal on backdrop click or Escape
   elements.successModal.addEventListener('click', (e) => {
@@ -175,6 +173,8 @@ function initMembershipForm() {
       location.reload();
     }
   });
+
+  return applyConfig(client, elements);
 }
 
 // Auto-initialize when DOM is ready

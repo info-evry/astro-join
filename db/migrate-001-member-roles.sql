@@ -1,5 +1,5 @@
 -- Migration: Add member roles (bureau positions)
--- Run: bunx wrangler d1 execute join-db --file=./db/migrate-member-roles.sql --remote
+-- Run: bunx wrangler d1 execute join-db --file=./db/migrate-001-member-roles.sql --remote
 
 -- Note: SQLite doesn't support ALTER TABLE to modify column constraints
 -- The status field will now accept these values:
@@ -14,7 +14,11 @@
 --   - rejected: Application rejected
 --   - expired: Membership expired
 
--- Create a table to track unique bureau positions
+-- RESERVED, NOT USED: nothing reads or writes this table. Uniqueness of the
+-- bureau roles is enforced by the application (an atomic UPDATE ... WHERE NOT
+-- EXISTS on members.status, see src/api/admin.js and src/shared/membership.js).
+-- It is kept only because it already exists in deployed databases; do not drop
+-- it without a dedicated, reviewed migration.
 CREATE TABLE IF NOT EXISTS bureau_positions (
   role TEXT PRIMARY KEY,
   member_id INTEGER UNIQUE,
@@ -22,7 +26,7 @@ CREATE TABLE IF NOT EXISTS bureau_positions (
   FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL
 );
 
--- Insert the unique positions (no member assigned initially)
+-- Insert the positions (no member assigned initially; the table is reserved, see above)
 INSERT OR IGNORE INTO bureau_positions (role, member_id) VALUES
   ('secretary', NULL),
   ('treasurer', NULL),

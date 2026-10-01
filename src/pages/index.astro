@@ -3,6 +3,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Badge from '@info-evry/astro-design/components/Badge.astro';
 import associationInfo from '@info-evry/knowledge/association';
 import computed from '@info-evry/knowledge/computed';
+import { LIMITS } from 'astro-core/validation';
+import { DEFAULT_ENROLLMENT_TRACKS } from '../shared/membership.js';
 ---
 
 <BaseLayout title="Adhésion - Asso Info Evry" description="Rejoignez l'Association Info Evry et profitez des avantages membres : accès au foyer, événements, entraide et bien plus !">
@@ -103,6 +105,9 @@ import computed from '@info-evry/knowledge/computed';
       <section id="inscription" class="content-section">
         <h2>Formulaire d'adhésion</h2>
 
+        <!-- Shown by membership-form.js when an admin closed the memberships -->
+        <p id="membership-closed" class="form-notice hidden" role="status"></p>
+
         <form id="membership-form" class="form">
           <div class="form-card">
             <h3 class="form-card-title">Informations personnelles</h3>
@@ -110,38 +115,29 @@ import computed from '@info-evry/knowledge/computed';
             <div class="member-grid">
               <div class="form-group">
                 <label for="first-name">Prénom *</label>
-                <input type="text" id="first-name" name="firstName" required maxlength="128">
+                <input type="text" id="first-name" name="firstName" required maxlength={LIMITS.name}>
               </div>
 
               <div class="form-group">
                 <label for="last-name">Nom *</label>
-                <input type="text" id="last-name" name="lastName" required maxlength="128">
+                <input type="text" id="last-name" name="lastName" required maxlength={LIMITS.name}>
               </div>
 
               <div class="form-group">
                 <label for="email">Email *</label>
-                <input type="email" id="email" name="email" required maxlength="256" placeholder="12345678@etud.univ-evry.fr">
+                <input type="email" id="email" name="email" required maxlength={LIMITS.email} placeholder="12345678@etud.univ-evry.fr">
               </div>
 
               <div class="form-group">
                 <label for="student-id">Numéro étudiant</label>
-                <input type="text" id="student-id" name="studentId" maxlength="32" placeholder="Optionnel">
+                <input type="text" id="student-id" name="studentId" maxlength={LIMITS.studentId} placeholder="Optionnel">
               </div>
 
               <div class="form-group full-width">
                 <label for="enrollment-track">Cursus *</label>
                 <input type="text" id="enrollment-track" name="enrollmentTrack" list="cursus-list" required placeholder="Ex: L3 Informatique">
                 <datalist id="cursus-list">
-                  <option value="L1 Informatique"></option>
-                  <option value="L2 Informatique"></option>
-                  <option value="L3 Informatique"></option>
-                  <option value="M1 Informatique"></option>
-                  <option value="M2 Informatique"></option>
-                  <option value="Doctorat Informatique"></option>
-                  <option value="L1 Mathématiques"></option>
-                  <option value="L2 Mathématiques"></option>
-                  <option value="L3 Mathématiques"></option>
-                  <option value="Autre"></option>
+                  {DEFAULT_ENROLLMENT_TRACKS.map((track) => <option value={track}></option>)}
                 </datalist>
               </div>
             </div>
@@ -154,17 +150,17 @@ import computed from '@info-evry/knowledge/computed';
             <div class="member-grid">
               <div class="form-group">
                 <label for="phone">Téléphone</label>
-                <input type="tel" id="phone" name="phone" maxlength="20" placeholder="06 12 34 56 78">
+                <input type="tel" id="phone" name="phone" maxlength={LIMITS.phone} placeholder="06 12 34 56 78">
               </div>
 
               <div class="form-group">
                 <label for="telegram">Pseudo Telegram</label>
-                <input type="text" id="telegram" name="telegram" maxlength="64" placeholder="@votre_pseudo">
+                <input type="text" id="telegram" name="telegram" maxlength={LIMITS.handle} placeholder="@votre_pseudo">
               </div>
 
               <div class="form-group full-width">
                 <label for="discord">Pseudo Discord</label>
-                <input type="text" id="discord" name="discord" maxlength="64" placeholder="pseudo#1234 ou pseudo">
+                <input type="text" id="discord" name="discord" maxlength={LIMITS.handle} placeholder="pseudo#1234 ou pseudo">
               </div>
             </div>
           </div>
@@ -307,6 +303,16 @@ import computed from '@info-evry/knowledge/computed';
 
   .pricing-note strong {
     color: var(--color-primary);
+  }
+
+  .form-notice {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    color: var(--color-text);
+    font-size: var(--text-sm);
   }
 
   /* Contact */

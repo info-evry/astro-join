@@ -1,116 +1,85 @@
 /* global document */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { bindDelegation } from '../../src/client/admin/actions.js';
-import { isolateDocumentListeners, click, change } from './helpers.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { bindDelegation } from '@info-evry/astro-design/scripts/delegation';
+import { buildActions } from '../../src/client/admin/actions.js';
+import { isolateDocumentListeners, click, change, settle } from './helpers.js';
+
+// Delegation itself is astro-design's (tested there); these tests cover the glue:
+// the data-action / data-change names of this dashboard and how their dataset ids are read.
 
 isolateDocumentListeners();
 
+const api = vi.fn();
+const loadData = vi.fn();
 let actions;
 let changes;
+let unbind;
 
 beforeEach(() => {
-  actions = { 'do-it': vi.fn(), 'other': vi.fn() };
-  changes = { 'on-change': vi.fn() };
-  bindDelegation(actions, changes);
+  api.mockReset();
+  loadData.mockReset();
+  ({ actions, changes } = buildActions({ api, loadData }));
+  // astro-design binds once per root: unbind so every test starts from a fresh listener
+  unbind = bindDelegation(actions, changes);
 });
 
-describe('click delegation', () => {
-  it('calls the action with the data-action element and the event', () => {
-    document.body.innerHTML = '<button id="b" data-action="do-it" data-member-id="4">Go</button>';
-    const button = document.getElementById('b');
+afterEach(() => unbind());
 
-    const event = click(button);
-
-    expect(actions['do-it']).toHaveBeenCalledTimes(1);
-    const [element, receivedEvent] = actions['do-it'].mock.calls[0];
-    expect(element).toBe(button);
-    expect(element.dataset.memberId).toBe('4');
-    expect(receivedEvent).toBe(event);
+describe('buildActions', () => {
+  it('registers every dashboard action and change handler as own keys', () => {
+    expect(Object.keys(actions).sort()).toEqual([
+      'approve-all', 'approve-member', 'bulk-approve', 'bulk-delete', 'bulk-set-status',
+      'confirm-delete-member', 'edit-member', 'reject-member', 'sort-members'
+    ]);
+    expect(Object.keys(changes).sort()).toEqual(['toggle-member-select', 'toggle-select-all']);
   });
 
-  it('resolves clicks on nested elements to the closest data-action ancestor', () => {
-    document.body.innerHTML = '<button id="b" data-action="do-it"><span><strong id="deep">Go</strong></span></button>';
+  it.each(['constructor', '__proto__', 'toString'])('has no inherited handler for %s', (name) => {
+    expect(Object.hasOwn(actions, name)).toBe(false);
+    expect(Object.hasOwn(changes, name)).toBe(false);
+  });
+});
 
-    click(document.getElementById('deep'));
+describe('click delegation through astro-design', () => {
+  it('reads the member id of a data-member-id element as a number', async () => {
+    document.body.innerHTML = '<button id="b" data-action="approve-member" data-member-id="4">Approuver</button>';
 
-    expect(actions['do-it']).toHaveBeenCalledTimes(1);
-    expect(actions['do-it'].mock.calls[0][0]).toBe(document.getElementById('b'));
+    click(document.getElementById('b'));
+    await settle();
+
+    expect(api).toHaveBeenCalledWith('/admin/members/4', expect.objectContaining({ method: 'PUT' }));
   });
 
-  it('uses the innermost data-action when actions are nested', () => {
-    document.body.innerHTML = '<div data-action="other"><button id="inner" data-action="do-it">x</button></div>';
+  it.each(['', 'abc', undefined])('ignores an action element whose member id is %j', async (id) => {
+    const attribute = id === undefined ? '' : ` data-member-id="${id}"`;
+    document.body.innerHTML = `<button id="b" data-action="approve-member"${attribute}>Approuver</button>`;
 
-    click(document.getElementById('inner'));
+    click(document.getElementById('b'));
+    await settle();
 
-    expect(actions['do-it']).toHaveBeenCalledTimes(1);
-    expect(actions.other).not.toHaveBeenCalled();
+    expect(api).not.toHaveBeenCalled();
   });
 
-  it('prevents the default action for handled clicks', () => {
-    document.body.innerHTML = '<a id="a" href="#x" data-action="do-it">link</a>';
+  it('prevents the default of handled button clicks and ignores unknown actions', () => {
+    document.body.innerHTML = '<button id="a" data-action="sort-members" data-field="email"></button><button id="b" data-action="nope"></button>';
     expect(click(document.getElementById('a')).defaultPrevented).toBe(true);
+    expect(click(document.getElementById('b')).defaultPrevented).toBe(false);
   });
 
-  it('ignores clicks outside any data-action element', () => {
-    document.body.innerHTML = '<button id="b">plain</button>';
-    const event = click(document.getElementById('b'));
-    expect(actions['do-it']).not.toHaveBeenCalled();
-    expect(event.defaultPrevented).toBe(false);
+  it.each(['constructor', '__proto__', 'hasOwnProperty'])('does not treat inherited "%s" as an action', (name) => {
+    document.body.innerHTML = `<button id="b" data-action="${name}">x</button>`;
+    expect(click(document.getElementById('b')).defaultPrevented).toBe(false);
   });
+});
 
-  it('ignores unknown action names without preventing the default', () => {
-    document.body.innerHTML = '<button id="b" data-action="nope">x</button>';
-    const event = click(document.getElementById('b'));
-    expect(event.defaultPrevented).toBe(false);
-  });
-
-  it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty'])(
-    'does not treat inherited Object member "%s" as an action',
-    (name) => {
-      document.body.innerHTML = `<button id="b" data-action="${name}">x</button>`;
-      const event = click(document.getElementById('b'));
-      expect(event.defaultPrevented).toBe(false);
-    }
-  );
-
-  it.each(['constructor', '__proto__', 'toString'])('does not treat inherited Object member "%s" as a change handler', (name) => {
-    document.body.innerHTML = `<input id="c" data-change="${name}">`;
+describe('change delegation through astro-design', () => {
+  it('ignores a selection checkbox without a usable member id', () => {
+    document.body.innerHTML = '<input id="c" type="checkbox" data-change="toggle-member-select" data-member-id="x">';
     expect(() => change(document.getElementById('c'))).not.toThrow();
   });
 
-  it('handles elements added after binding (delegation)', () => {
-    document.body.innerHTML = '';
-    const late = document.createElement('button');
-    late.dataset.action = 'other';
-    document.body.append(late);
-    click(late);
-    expect(actions.other).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('change delegation', () => {
-  it('calls the change handler with the data-change element', () => {
-    document.body.innerHTML = '<input id="c" type="checkbox" data-change="on-change" data-member-id="9">';
-    const input = document.getElementById('c');
-
-    change(input);
-
-    expect(changes['on-change']).toHaveBeenCalledTimes(1);
-    expect(changes['on-change'].mock.calls[0][0]).toBe(input);
-  });
-
-  it('resolves changes on nested elements', () => {
-    document.body.innerHTML = '<label data-change="on-change"><input id="deep" type="checkbox"></label>';
-    change(document.getElementById('deep'));
-    expect(changes['on-change']).toHaveBeenCalledTimes(1);
-  });
-
-  it('ignores elements without data-change and unknown names', () => {
-    document.body.innerHTML = '<input id="a"><input id="b" data-change="nope">';
-    expect(() => {
-      change(document.getElementById('a'));
-      change(document.getElementById('b'));
-    }).not.toThrow();
-    expect(changes['on-change']).not.toHaveBeenCalled();
+  it.each(['constructor', '__proto__', 'toString'])('does not treat inherited "%s" as a change handler', (name) => {
+    document.body.innerHTML = `<input id="c" data-change="${name}">`;
+    expect(() => change(document.getElementById('c'))).not.toThrow();
   });
 });

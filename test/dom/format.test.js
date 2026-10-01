@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  getContactInfo, getStatusClass, getStatusLabel, formatMemberDate, fullStatusLabel
-} from '../../src/client/admin/format.js';
-import { STATUS_LABELS } from '../../src/client/admin/state.js';
+import { getContactInfo, getStatusClass, formatMemberDate } from '../../src/client/admin/format.js';
 import { XSS_ATTRIBUTE } from './helpers.js';
 
 describe('getContactInfo', () => {
@@ -39,27 +36,8 @@ describe('status helpers', () => {
     expect(getStatusClass(status)).toBe('secondary');
   });
 
-  it.each([
-    ['active', 'Actif'], ['pending', 'En attente'], ['rejected', 'Refusé'], ['expired', 'Expiré']
-  ])('uses the short table label for %s', (status, label) => {
-    expect(getStatusLabel(status)).toBe(label);
-  });
-
-  it.each(Object.entries(STATUS_LABELS).filter(([status]) => !['active', 'pending', 'rejected', 'expired'].includes(status)))(
-    'shows the French label for the %s role instead of the raw value',
-    (status, label) => {
-      expect(getStatusLabel(status)).toBe(label);
-    }
-  );
-
-  it('returns an unknown status unchanged', () => {
-    expect(getStatusLabel('mystery')).toBe('mystery');
-    expect(fullStatusLabel('mystery')).toBe('mystery');
-  });
-
-  it('labels every server status with its French name', () => {
-    expect(fullStatusLabel('honorary_president')).toBe("Président d'honneur");
-    expect(fullStatusLabel('vice_president')).toBe('Vice-président');
+  it.each(['constructor', '__proto__', 'toString'])('treats the inherited name %s as an unknown status', (status) => {
+    expect(getStatusClass(status)).toBe('secondary');
   });
 });
 

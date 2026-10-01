@@ -27,6 +27,14 @@ const render = (list) => {
 };
 
 describe('renderMembers - markup contract', () => {
+  it.each([
+    ['active', 'Membre actif'], ['pending', 'En attente'], ['honor', "Membre d'honneur"],
+    ['vice_president', 'Vice-président'], ['expired', 'Expiré']
+  ])('labels the %s status with the shared French label (%s)', (status, label) => {
+    render([makeMember({ id: 1, status })]);
+    expect(container().querySelector('.badge').textContent).toBe(label);
+  });
+
   it('renders one row per member with data-id', () => {
     render([makeMember({ id: 1 }), makeMember({ id: 2 })]);
     expect(container().querySelectorAll('tbody tr')).toHaveLength(2);
@@ -216,7 +224,8 @@ describe('sorting', () => {
   });
 
   it('is driven by clicking a header through the delegated action contract', async () => {
-    const { buildActions, bindDelegation } = await import('../../src/client/admin/actions.js');
+    const { buildActions } = await import('../../src/client/admin/actions.js');
+    const { bindDelegation } = await import('@info-evry/astro-design/scripts/delegation');
     const { actions, changes } = buildActions({ api: vi.fn(), loadData: vi.fn() });
     bindDelegation(actions, changes);
 

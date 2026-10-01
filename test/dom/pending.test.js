@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  mountAdminDom, byId, makeMember, settle, currentToast, isHidden, inlineHandlerAttributes, XSS_ATTRIBUTE, XSS_APOSTROPHE
+  mountAdminDom, byId, makeMember, settle, currentToast, isHidden, click, inlineHandlerAttributes, XSS_ATTRIBUTE, XSS_APOSTROPHE
 } from './helpers.js';
 
 let pending;
@@ -21,8 +21,9 @@ beforeEach(async () => {
 afterEach(() => vi.useRealTimers());
 
 const container = () => byId('pending-container');
+/** Click the confirm button the way a user would (astro-design's confirmAction owns the listener). */
 const confirm = async () => {
-  byId('confirm-btn').onclick();
+  click(byId('confirm-btn'));
   await settle();
 };
 

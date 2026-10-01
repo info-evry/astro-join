@@ -4,11 +4,11 @@
 import { $, escapeHtml } from '@info-evry/astro-design/scripts/dom';
 import { setTabBadge } from '@info-evry/astro-design/scripts/tabs';
 import { toastSuccess, toastError } from '@info-evry/astro-design/scripts/toast';
-import { closeModal, openModal } from '@info-evry/astro-design/scripts/modal';
+import { confirmAction } from '@info-evry/astro-design/scripts/confirm';
+import { chunk } from 'astro-core/d1';
+import { MAX_BATCH_IDS } from '../../../shared/membership.js';
 import { state } from '../state.js';
 import { getContactInfo, formatMemberDate } from '../format.js';
-
-const CONFIRM_MODAL = 'confirm-modal';
 
 export function renderPendingApplications(members) {
   const container = $('pending-container');
@@ -74,50 +74,37 @@ export async function approveMember(id, api, loadData) {
 }
 
 export function rejectMember(id, api, loadData) {
-  $('confirm-message').textContent = 'Êtes-vous sûr de vouloir refuser cette demande ?';
-  const confirmBtn = $('confirm-btn');
-  confirmBtn.className = 'btn btn-danger';
-  confirmBtn.textContent = 'Confirmer';
-  confirmBtn.onclick = async () => {
-    try {
+  confirmAction({
+    message: 'Êtes-vous sûr de vouloir refuser cette demande ?',
+    confirmLabel: 'Confirmer',
+    onConfirm: async () => {
       await api(`/admin/members/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'rejected', reason: 'Rejected by admin' })
       });
       toastSuccess('Demande refusée');
-      closeModal(CONFIRM_MODAL);
       loadData();
-    } catch (error) {
-      toastError(error.message);
     }
-  };
-  openModal(CONFIRM_MODAL);
+  });
 }
 
-export async function approveAll(api, loadData) {
+export function approveAll(api, loadData) {
   const pending = state.members.filter((m) => m.status === 'pending');
   if (pending.length === 0) return;
 
-  $('confirm-message').textContent = `Approuver ${pending.length} demande(s) ?`;
-  const confirmBtn = $('confirm-btn');
-  confirmBtn.className = 'btn btn-primary';
-  confirmBtn.textContent = 'Approuver';
-  confirmBtn.onclick = async () => {
-    try {
-      await api('/admin/members/batch', {
-        method: 'POST',
-        body: JSON.stringify({
-          memberIds: pending.map((m) => m.id),
-          status: 'active',
-          reason: 'Batch approved by admin'
-        })
-      });
+  confirmAction({
+    message: `Approuver ${pending.length} demande(s) ?`,
+    confirmLabel: 'Approuver',
+    variant: 'primary',
+    onConfirm: async () => {
+      for (const memberIds of chunk(pending.map((m) => m.id), MAX_BATCH_IDS)) {
+        await api('/admin/members/batch', {
+          method: 'POST',
+          body: JSON.stringify({ memberIds, status: 'active', reason: 'Batch approved by admin' })
+        });
+      }
       toastSuccess(`${pending.length} membre(s) approuvé(s)`);
-      closeModal(CONFIRM_MODAL);
       loadData();
-    } catch (error) {
-      toastError(error.message);
     }
-  };
-  openModal(CONFIRM_MODAL);
+  });
 }

@@ -3,9 +3,9 @@
  * uniqueness, delete, batch, history and expiry bookkeeping.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
-import { env } from 'cloudflare:test';
+import { env, SELF } from 'cloudflare:test';
 import {
-  setupSchema, resetMembers, insertMember, getMember, getHistory, adminFetch, uid
+  BASE, setupSchema, resetMembers, insertMember, getMember, getHistory, adminFetch, uid
 } from './helpers.js';
 
 beforeAll(setupSchema);
@@ -19,7 +19,7 @@ const countMembers = async () => (await env.DB.prepare('SELECT COUNT(*) AS n FRO
 
 /** Academic year ends on 31 August: from September on, it is next year's. */
 function expectedExpiry(now = new Date()) {
-  const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+  const year = now.getUTCMonth() >= 8 ? now.getUTCFullYear() + 1 : now.getUTCFullYear();
   return `${year}-08-31`;
 }
 
@@ -200,7 +200,7 @@ describe('PUT /api/admin/members/:id - editing fields', () => {
     const id = await insertMember();
     const response = await put(id, body);
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe('No updates provided');
+    expect(await response.json()).toEqual({ error: 'Aucune modification fournie', code: 'no_changes' });
   });
 
   it.each([
@@ -255,11 +255,12 @@ describe('PUT /api/admin/members/:id - editing fields', () => {
   });
 
   it.each(['abc', '0', '-1', '1.5', '12abc', '1e3', '0x10', '99999999999999999999', 'batch', '%20'])(
-    'answers 404 for the malformed id %j without touching real members',
+    'answers 400 invalid_id for the malformed id %j without touching real members',
     async (rawId) => {
       const real = await insertMember({ first_name: 'Safe' });
       const response = await adminFetch(`/api/admin/members/${rawId}`, { method: 'PUT', body: { firstName: 'Hacked' } });
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(400);
+      expect((await response.json()).code).toBe('invalid_id');
       expect((await getMember(real)).first_name).toBe('Safe');
     }
   );
@@ -267,7 +268,7 @@ describe('PUT /api/admin/members/:id - editing fields', () => {
   it('does not let "<id>abc" address the member with that numeric prefix', async () => {
     const id = await insertMember({ first_name: 'Prefix' });
     const response = await adminFetch(`/api/admin/members/${id}abc`, { method: 'PUT', body: { firstName: 'Hacked' } });
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(400);
     expect((await getMember(id)).first_name).toBe('Prefix');
   });
 });
@@ -279,7 +280,7 @@ describe('PUT /api/admin/members/:id - status transitions', () => {
       const id = await insertMember({ status: 'pending' });
       const response = await put(id, { status });
       expect(response.status).toBe(400);
-      expect((await response.json()).error).toContain('Invalid status');
+      expect(await response.json()).toMatchObject({ code: 'invalid_status' });
       expect((await getMember(id)).status).toBe('pending');
       expect(await getHistory(id)).toEqual([]);
     }
@@ -395,8 +396,9 @@ describe('PUT /api/admin/members/:id - bureau roles', () => {
 
     const response = await put(candidate, { status: role });
 
-    expect(response.status).toBe(400);
-    const { error } = await response.json();
+    expect(response.status).toBe(409);
+    const { error, code } = await response.json();
+    expect(code).toBe('conflict');
     expect(error).toContain('Holder Person');
     expect((await getMember(candidate)).status).toBe('active');
     expect((await getMember(holder)).status).toBe(role);
@@ -420,7 +422,7 @@ describe('PUT /api/admin/members/:id - bureau roles', () => {
   it('frees a role once its holder is demoted', async () => {
     const first = await insertMember({ status: 'treasurer' });
     const second = await insertMember({ status: 'active' });
-    expect((await put(second, { status: 'treasurer' })).status).toBe(400);
+    expect((await put(second, { status: 'treasurer' })).status).toBe(409);
 
     expect((await put(first, { status: 'active' })).status).toBe(200);
     expect((await put(second, { status: 'treasurer' })).status).toBe(200);
@@ -471,7 +473,7 @@ describe('PUT /api/admin/members/:id - bureau roles', () => {
 
     const response = await put(id, { status: 'president', firstName: 'After' });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(409);
     expect(await getMember(id)).toMatchObject({ status: 'active', first_name: 'Before' });
   });
 
@@ -481,7 +483,7 @@ describe('PUT /api/admin/members/:id - bureau roles', () => {
 
     const [ra, rb] = await Promise.all([put(a, { status: 'president' }), put(b, { status: 'president' })]);
 
-    expect([ra.status, rb.status].sort()).toEqual([200, 400]);
+    expect([ra.status, rb.status].sort()).toEqual([200, 409]);
     const { n } = await env.DB.prepare("SELECT COUNT(*) AS n FROM members WHERE status = 'president'").first();
     expect(n).toBe(1);
   });
@@ -514,11 +516,12 @@ describe('DELETE /api/admin/members/:id', () => {
   });
 
   it.each(['abc', '0', '-1', '1.5', '12abc', '99999999999999999999'])(
-    'answers 404 for the malformed id %j and deletes nothing',
+    'answers 400 invalid_id for the malformed id %j and deletes nothing',
     async (rawId) => {
       await insertMember();
       const response = await adminFetch(`/api/admin/members/${rawId}`, { method: 'DELETE' });
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(400);
+      expect((await response.json()).code).toBe('invalid_id');
       expect(await countMembers()).toBe(1);
     }
   );
@@ -526,7 +529,7 @@ describe('DELETE /api/admin/members/:id', () => {
   it('does not let "<id>abc" delete the member with that numeric prefix', async () => {
     const id = await insertMember();
     const response = await adminFetch(`/api/admin/members/${id}abc`, { method: 'DELETE' });
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(400);
     expect(await getMember(id)).not.toBeNull();
   });
 });
@@ -538,7 +541,7 @@ describe('POST /api/admin/members/batch', () => {
     const response = await batch({ memberIds: ids, status: 'active', reason: 'Bulk approved' });
 
     expect(response.status).toBe(200);
-    expect((await response.json()).message).toContain('3 member(s)');
+    expect((await response.json()).message).toContain('3 membre(s)');
     for (const id of ids) {
       const row = await getMember(id);
       expect(row.status).toBe('active');
@@ -573,7 +576,7 @@ describe('POST /api/admin/members/batch', () => {
   it('de-duplicates ids so each member gets one history row', async () => {
     const id = await insertMember();
     const response = await batch({ memberIds: [id, id, id], status: 'active' });
-    expect((await response.json()).message).toContain('1 member(s)');
+    expect((await response.json()).message).toContain('1 membre(s)');
     expect(await getHistory(id)).toHaveLength(1);
   });
 
@@ -581,7 +584,7 @@ describe('POST /api/admin/members/batch', () => {
     const id = await insertMember();
     const response = await batch({ memberIds: [id, 987_654, 987_655], status: 'active' });
     expect(response.status).toBe(200);
-    expect((await response.json()).message).toContain('1 member(s)');
+    expect((await response.json()).message).toContain('1 membre(s)');
     const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM membership_history').first();
     expect(n).toBe(1);
   });
@@ -599,7 +602,7 @@ describe('POST /api/admin/members/batch', () => {
     const response = await batch({ memberIds: ids, status: 'active' });
 
     expect(response.status).toBe(200);
-    expect((await response.json()).message).toContain('120 member(s)');
+    expect((await response.json()).message).toContain('120 membre(s)');
     const active = await env.DB.prepare("SELECT COUNT(*) AS n FROM members WHERE status = 'active'").first();
     const history = await env.DB.prepare('SELECT COUNT(*) AS n FROM membership_history').first();
     expect([active.n, history.n]).toEqual([120, 120]);
@@ -624,11 +627,10 @@ describe('POST /api/admin/members/batch', () => {
   ])('rejects memberIds that is %s', async (_label, memberIds) => {
     const response = await batch({ memberIds, status: 'active' });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe('No members specified');
+    expect(await response.json()).toMatchObject({ error: 'Aucun membre spécifié', code: 'no_members' });
   });
 
   it.each([
-    ['strings', ['1', '2']],
     ['non-numeric strings', ['a']],
     ['floats', [1.5]],
     ['negatives', [-1]],
@@ -642,7 +644,7 @@ describe('POST /api/admin/members/batch', () => {
   ])('rejects memberIds containing %s', async (_label, memberIds) => {
     const response = await batch({ memberIds, status: 'active' });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('positive integers');
+    expect(await response.json()).toMatchObject({ code: 'invalid_id' });
   });
 
   it.each(['pending', 'president', 'secretary', 'honor', 'superuser', '', null, 1, undefined])(
@@ -651,7 +653,7 @@ describe('POST /api/admin/members/batch', () => {
       const id = await insertMember();
       const response = await batch({ memberIds: [id], status });
       expect(response.status).toBe(400);
-      expect((await response.json()).error).toBe('Invalid status');
+      expect(await response.json()).toMatchObject({ code: 'invalid_status' });
       expect((await getMember(id)).status).toBe('pending');
     }
   );
@@ -674,8 +676,232 @@ describe('POST /api/admin/members/batch', () => {
 
   it('does not treat "batch" as a member id for PUT or DELETE', async () => {
     const id = await insertMember();
-    expect((await put('batch', { notes: 'x' })).status).toBe(404);
-    expect((await del('batch')).status).toBe(404);
+    // PUT has no batch route, so "batch" is read as an id; DELETE batch is the
+    // batch route itself and (without a body) refuses to run.
+    expect((await put('batch', { notes: 'x' })).status).toBe(400);
+    expect((await del('batch')).status).toBe(400);
     expect(await getMember(id)).not.toBeNull();
+  });
+});
+
+const SQL_TIMESTAMP = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+describe('active members are counted the same way everywhere', () => {
+  it('counts active, honor and every bureau role in /api/stats, the admin list and the admin stats', async () => {
+    for (const status of ['active', 'honor', 'president', 'honorary_president', 'vice_president', 'pending', 'rejected', 'expired']) {
+      await insertMember({ status });
+    }
+
+    const publicStats = (await (await SELF.fetch(`${BASE}/api/stats`)).json()).stats;
+    const list = (await (await adminFetch('/api/admin/members')).json()).stats;
+    const admin = (await (await adminFetch('/api/admin/stats')).json()).stats;
+
+    expect(publicStats).toEqual({ activeMembers: 5, pendingApplications: 1 });
+    expect(list).toEqual({ total: 8, active: 5, pending: 1, rejected: 1, expired: 1 });
+    expect(admin).toEqual(list);
+  });
+});
+
+describe('approved_at format', () => {
+  it.each([
+    ['a single update', (id) => put(id, { status: 'active' })],
+    ['a batch', (id) => batch({ memberIds: [id], status: 'active' })]
+  ])('is the SQLite timestamp format (like created_at) after %s', async (_label, approve) => {
+    const id = await insertMember({ status: 'pending' });
+    expect((await approve(id)).status).toBe(200);
+    expect((await getMember(id)).approved_at).toMatch(SQL_TIMESTAMP);
+  });
+});
+
+describe('PUT /api/admin/members/:id - validation and atomicity', () => {
+  it('stores a trimmed, lower-cased email', async () => {
+    const id = await insertMember();
+    expect((await put(id, { email: '  Mixed.Case@Test.Example ' })).status).toBe(200);
+    expect((await getMember(id)).email).toBe('mixed.case@test.example');
+  });
+
+  it('caps notes at 1000 characters (after trimming)', async () => {
+    const id = await insertMember();
+    expect((await put(id, { notes: `  ${'n'.repeat(1000)}  ` })).status).toBe(200);
+    const response = await put(id, { notes: 'n'.repeat(1001) });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'invalid_field' });
+  });
+
+  it.each([
+    ['firstName', 101], ['lastName', 101], ['email', 250], ['studentId', 33], ['phone', 31],
+    ['telegram', 65], ['discord', 65], ['enrollmentNumber', 33]
+  ])('caps %s at the shared limit', async (field, length) => {
+    const id = await insertMember({ first_name: 'Stable' });
+    const value = field === 'email' ? `${'x'.repeat(length)}@test.example` : 'x'.repeat(length);
+    const response = await put(id, { [field]: value });
+    expect(response.status).toBe(400);
+    expect((await getMember(id)).first_name).toBe('Stable');
+  });
+
+  it('only accepts a configured enrollment track', async () => {
+    const id = await insertMember({ enrollment_track: 'L3 Informatique' });
+    const refused = await put(id, { enrollmentTrack: 'Made up track' });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ code: 'invalid_track' });
+    expect((await getMember(id)).enrollment_track).toBe('L3 Informatique');
+
+    expect((await put(id, { enrollmentTrack: 'M1 Informatique' })).status).toBe(200);
+    expect((await getMember(id)).enrollment_track).toBe('M1 Informatique');
+  });
+
+  it('lets a member keep a track outside the configured list (legacy or imported data)', async () => {
+    const id = await insertMember({ enrollment_track: 'Doctorat, Info' });
+    expect((await put(id, { enrollmentTrack: 'Doctorat, Info', notes: 'edited in the dashboard' })).status).toBe(200);
+    expect((await getMember(id)).notes).toBe('edited in the dashboard');
+  });
+
+  it.each([5, ['x'], { a: 1 }, true])('rejects a non-string reason %j', async (reason) => {
+    const id = await insertMember({ status: 'pending' });
+    const response = await put(id, { status: 'active', reason });
+    expect(response.status).toBe(400);
+    expect((await getMember(id)).status).toBe('pending');
+  });
+
+  it('applies nothing when a duplicate email accompanies a role assignment', async () => {
+    const taken = `${uid('dup')}@test.example`;
+    await insertMember({ email: taken });
+    const id = await insertMember({ status: 'active', first_name: 'Before' });
+
+    const response = await put(id, { status: 'president', email: taken, firstName: 'After', notes: 'edited' });
+
+    expect(response.status).toBe(409);
+    expect(await getMember(id)).toMatchObject({ status: 'active', first_name: 'Before', notes: null });
+    expect(await getHistory(id)).toEqual([]);
+    const { n } = await env.DB.prepare("SELECT COUNT(*) AS n FROM members WHERE status = 'president'").first();
+    expect(n).toBe(0);
+  });
+
+  it('applies nothing when a duplicate email accompanies a plain status change', async () => {
+    const taken = `${uid('dup')}@test.example`;
+    await insertMember({ email: taken });
+    const id = await insertMember({ status: 'pending' });
+
+    expect((await put(id, { status: 'active', email: taken })).status).toBe(409);
+
+    expect(await getMember(id)).toMatchObject({ status: 'pending', approved_at: null, expires_at: null });
+    expect(await getHistory(id)).toEqual([]);
+  });
+
+  it('answers 404 for an unknown member even with a role assignment', async () => {
+    expect((await put(987_654, { status: 'president' })).status).toBe(404);
+  });
+});
+
+describe('POST /api/admin/members/batch - dates and history', () => {
+  it('does not reset the approval of members who are already active', async () => {
+    const already = await insertMember({ status: 'active', approved_at: '2024-01-01 00:00:00', expires_at: '2024-08-31' });
+    const honor = await insertMember({ status: 'honor', approved_at: '2023-01-01 00:00:00', expires_at: '2023-08-31' });
+    const pending = await insertMember({ status: 'pending' });
+
+    expect((await batch({ memberIds: [already, honor, pending], status: 'active' })).status).toBe(200);
+
+    expect(await getMember(already)).toMatchObject({ status: 'active', approved_at: '2024-01-01 00:00:00', expires_at: '2024-08-31' });
+    expect(await getMember(honor)).toMatchObject({ status: 'active', approved_at: '2023-01-01 00:00:00', expires_at: '2023-08-31' });
+    const fresh = await getMember(pending);
+    expect(fresh.approved_at).toMatch(SQL_TIMESTAMP);
+    expect(fresh.expires_at).toBe(expectedExpiry());
+  });
+
+  it('reapproves expired and rejected members', async () => {
+    const expired = await insertMember({ status: 'expired', approved_at: '2020-01-01 00:00:00', expires_at: '2020-08-31' });
+    await batch({ memberIds: [expired], status: 'active' });
+    expect((await getMember(expired)).expires_at).toBe(expectedExpiry());
+  });
+
+  it('records the previous status in the history and skips members whose status does not change', async () => {
+    const pending = await insertMember({ status: 'pending' });
+    const active = await insertMember({ status: 'active' });
+
+    const response = await batch({ memberIds: [pending, active], status: 'active', reason: 'Bulk' });
+
+    expect(response.status).toBe(200);
+    expect(await getHistory(pending)).toMatchObject([{ old_status: 'pending', new_status: 'active', reason: 'Bulk' }]);
+    expect(await getHistory(active)).toEqual([]);
+  });
+
+  it('answers 400 for a reason over 1000 characters', async () => {
+    const id = await insertMember();
+    expect((await batch({ memberIds: [id], status: 'active', reason: 'r'.repeat(1001) })).status).toBe(400);
+  });
+});
+
+describe('DELETE /api/admin/members/batch', () => {
+  const delBatch = (body) => adminFetch('/api/admin/members/batch', { method: 'DELETE', body });
+
+  it('deletes the listed members, cascades their history and reports the count', async () => {
+    const a = await insertMember({ status: 'pending' });
+    const b = await insertMember({ status: 'pending' });
+    const keep = await insertMember();
+    await batch({ memberIds: [a, b], status: 'active' });
+    expect(await getHistory(a)).toHaveLength(1);
+
+    const response = await delBatch({ ids: [a, b] });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ success: true, deleted: 2 });
+    expect(await getMember(a)).toBeNull();
+    expect(await getMember(b)).toBeNull();
+    expect(await getMember(keep)).not.toBeNull();
+    expect(await getHistory(a)).toEqual([]);
+    expect((await env.DB.prepare('SELECT COUNT(*) AS n FROM membership_history').first()).n).toBe(0);
+  });
+
+  it('ignores duplicate ids and ids that do not exist', async () => {
+    const id = await insertMember();
+    const response = await delBatch({ ids: [id, id, 987_654] });
+    expect(response.status).toBe(200);
+    expect((await response.json()).deleted).toBe(1);
+  });
+
+  it('deletes more ids than one D1 statement can bind (250 members, one request)', async () => {
+    const ids = [];
+    for (let i = 0; i < 250; i++) ids.push(await insertMember());
+    const keep = await insertMember();
+
+    const response = await delBatch({ ids });
+
+    expect((await response.json()).deleted).toBe(250);
+    expect(await countMembers()).toBe(1);
+    expect(await getMember(keep)).not.toBeNull();
+  }, 30_000);
+
+  it('answers 404 when none of the ids exist', async () => {
+    expect((await delBatch({ ids: [987_654] })).status).toBe(404);
+  });
+
+  it('accepts exactly 1000 ids and rejects 1001 with too_many_ids', async () => {
+    const ids = Array.from({ length: 1001 }, (_, i) => i + 1_000_000);
+    expect((await delBatch({ ids: ids.slice(0, 1000) })).status).toBe(404);
+    const response = await delBatch({ ids });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'too_many_ids' });
+  });
+
+  it.each([
+    ['missing', {}, 'no_members'],
+    ['an empty array', { ids: [] }, 'no_members'],
+    ['a string', { ids: '1,2' }, 'no_members'],
+    ['a non-id entry', { ids: [1, 'x'] }, 'invalid_id'],
+    ['zero', { ids: [0] }, 'invalid_id'],
+    ['a float', { ids: [1.5] }, 'invalid_id'],
+    ['a nested array', { ids: [[1]] }, 'invalid_id']
+  ])('rejects ids that are %s and deletes nothing', async (_label, body, code) => {
+    await insertMember();
+    const response = await delBatch(body);
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe(code);
+    expect(await countMembers()).toBe(1);
+  });
+
+  it.each(['{oops', '', 'null', '[1]'])('answers 400 invalid_body for the body %j', async (body) => {
+    const response = await delBatch(body);
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('invalid_body');
   });
 });

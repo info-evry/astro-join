@@ -25,16 +25,8 @@ describe('admin state', () => {
     expect(state.stats).toEqual({ total: 1 });
   });
 
-  it('knows the five bureau statuses and nothing else', () => {
-    expect([...stateModule.BUREAU_STATUSES].sort()).toEqual([
-      'honorary_president', 'president', 'secretary', 'treasurer', 'vice_president'
-    ]);
-  });
-
-  it('labels the ten server statuses', () => {
-    expect(Object.keys(stateModule.STATUS_LABELS).sort()).toEqual([
-      'active', 'expired', 'honor', 'honorary_president', 'pending',
-      'president', 'rejected', 'secretary', 'treasurer', 'vice_president'
-    ]);
+  it('no longer keeps its own copy of the status labels or bureau roles (they are shared with the API)', () => {
+    expect(stateModule).not.toHaveProperty('STATUS_LABELS');
+    expect(stateModule).not.toHaveProperty('BUREAU_STATUSES');
   });
 });

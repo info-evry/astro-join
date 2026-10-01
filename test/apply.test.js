@@ -2,7 +2,7 @@
  * POST /api/apply: input hardening, limits, normalisation, duplicates.
  * Complements the happy-path coverage in api.test.js.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
 import {
   BASE, setupSchema, resetMembers, insertMember, getMember, getHistory,
@@ -37,7 +37,7 @@ describe('request body handling', () => {
   it('answers 413 for a body over the 1 MB limit and stores nothing', async () => {
     const response = await applyFetch(validApplication({ discord: '@big', notes: 'x'.repeat(1024 * 1024 + 1) }));
     expect(response.status).toBe(413);
-    expect((await response.json()).error).toContain('too large');
+    expect(await response.json()).toMatchObject({ code: 'payload_too_large' });
     expect((await env.DB.prepare('SELECT COUNT(*) AS n FROM members').first()).n).toBe(0);
   });
 
@@ -373,5 +373,54 @@ describe('hostile strings', () => {
     expect(response.status).toBe(200);
     const stats = await (await SELF.fetch(`${BASE}/api/stats`)).json();
     expect(stats.stats.pendingApplications).toBe(1);
+  });
+});
+
+describe('membership_open is enforced by POST /api/apply', () => {
+  afterEach(() => putSetting('membership_open', 'true'));
+
+  it.each(['false', JSON.stringify(false)])('answers 403 membership_closed when the setting is %s', async (value) => {
+    await putSetting('membership_open', value);
+    const payload = validApplication();
+
+    const response = await applyFetch(payload);
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: "Les adhésions sont actuellement fermées. Revenez plus tard ou contactez l'association.",
+      code: 'membership_closed'
+    });
+    expect(await countByEmail(payload.email)).toBe(0);
+  });
+
+  it('refuses a closed membership before looking at the body', async () => {
+    await putSetting('membership_open', 'false');
+    expect((await applyFetch('{not json')).status).toBe(403);
+  });
+
+  it('accepts applications again once re-opened', async () => {
+    await putSetting('membership_open', 'false');
+    await putSetting('membership_open', 'true');
+    expect((await applyFetch(validApplication())).status).toBe(200);
+  });
+
+  it('is reported by /api/config as membershipOpen=false', async () => {
+    await putSetting('membership_open', 'false');
+    const config = (await (await SELF.fetch(`${BASE}/api/config`)).json()).config;
+    expect(config.membershipOpen).toBe(false);
+  });
+});
+
+describe('email handling shared with the admin edit', () => {
+  it('trims and lower-cases the email like the admin PUT does', async () => {
+    const response = await applyFetch(validApplication({ email: '  Trim.Me@Test.Example  ' }));
+    expect(response.status).toBe(200);
+    expect(await byEmail('trim.me@test.example')).not.toBeNull();
+  });
+
+  it('records the application and its history row in one batch', async () => {
+    const payload = validApplication();
+    const { memberId } = await (await applyFetch(payload)).json();
+    expect(await getHistory(memberId)).toMatchObject([{ old_status: null, new_status: 'pending', reason: 'Application submitted' }]);
   });
 });

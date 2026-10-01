@@ -114,7 +114,8 @@ describe('start-up', () => {
 
   it('renders stats, tables, bureau and settings from the loaded data', async () => {
     localStorage.setItem(TOKEN_KEY, 'good-token');
-    server.settings = { membership_open: 'false', current_year: '2031-2032' };
+    // GET /api/admin/settings returns parsed values: a real boolean
+    server.settings = { membership_open: false, current_year: '2031-2032' };
     await bootAdmin();
 
     expect(byId('stats-grid').children).toHaveLength(4);
@@ -127,13 +128,48 @@ describe('start-up', () => {
     expect(byId('setting-current-year').value).toBe('2031-2032');
   });
 
-  it('returns to the login form and forgets a rejected stored token', async () => {
+  it('returns to the login form and forgets a token the server rejected with 401 (silently)', async () => {
     localStorage.setItem(TOKEN_KEY, 'stale-token');
     await bootAdmin();
 
     expectLoginScreen();
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
-    expect(currentToast().textContent).toBe('Session expirée');
+    expect(isHidden('auth-error')).toBe(true);
+    expect(currentToast()).toBeNull();
+  });
+
+  it('keeps the stored token and offers a retry when the network fails', async () => {
+    localStorage.setItem(TOKEN_KEY, 'good-token');
+    server.fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+    await bootAdmin();
+
+    expectLoginScreen();
+    expect(localStorage.getItem(TOKEN_KEY)).toBe('good-token');
+    expect(isHidden('auth-error')).toBe(false);
+    expect(byId('auth-error').textContent).toBe('Service momentanément indisponible. Réessayez.');
+  });
+
+  it('keeps the stored token when the server answers 5xx', async () => {
+    localStorage.setItem(TOKEN_KEY, 'good-token');
+    server.failMembersWith = 'Erreur interne';
+    await bootAdmin();
+
+    expectLoginScreen();
+    expect(localStorage.getItem(TOKEN_KEY)).toBe('good-token');
+    expect(byId('auth-error').textContent).toBe('Service momentanément indisponible. Réessayez.');
+  });
+
+  it('retries with the stored token when the login button is clicked with an empty input', async () => {
+    localStorage.setItem(TOKEN_KEY, 'good-token');
+    server.failMembersWith = 'Erreur interne';
+    await bootAdmin();
+    expectLoginScreen();
+
+    server.failMembersWith = null;
+    await logIn('');
+
+    expectAdminScreen();
+    expect(localStorage.getItem(TOKEN_KEY)).toBe('good-token');
   });
 });
 
@@ -159,11 +195,11 @@ describe('logging in', () => {
   it('logs in with the Enter key but not with other keys', async () => {
     byId('admin-token').value = 'good-token';
 
-    byId('admin-token').dispatchEvent(new KeyboardEvent('keypress', { key: 'a', bubbles: true }));
+    byId('admin-token').dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
     await settle();
     expect(server.fetch).not.toHaveBeenCalled();
 
-    byId('admin-token').dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', bubbles: true }));
+    byId('admin-token').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await settle();
     expectAdminScreen();
   });
@@ -171,7 +207,7 @@ describe('logging in', () => {
   it.each(['', '   '])('refuses an empty token (%j) without calling the API', async (value) => {
     await logIn(value);
 
-    expect(byId('auth-error').textContent).toBe('Token requis');
+    expect(byId('auth-error').textContent).toBe('Veuillez entrer un token');
     expect(isHidden('auth-error')).toBe(false);
     expect(server.fetch).not.toHaveBeenCalled();
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
@@ -188,12 +224,13 @@ describe('logging in', () => {
     expect(byId('members-container').querySelector('table')).toBeNull();
   });
 
-  it('shows the server message for a non-auth failure', async () => {
-    server.failMembersWith = 'Failed to load members';
+  it('keeps the token and shows a retry message for a server failure (only a 401 clears it)', async () => {
+    server.failMembersWith = 'Erreur interne';
     await logIn('good-token');
 
-    expect(byId('auth-error').textContent).toBe('Failed to load members');
+    expect(byId('auth-error').textContent).toBe('Service momentanément indisponible. Réessayez.');
     expect(isHidden('auth-error')).toBe(false);
+    expect(localStorage.getItem(TOKEN_KEY)).toBe('good-token');
     expectLoginScreen();
   });
 
@@ -248,14 +285,26 @@ describe('session expiry while using the dashboard', () => {
     expect(currentToast().classList.contains('error')).toBe(true);
   });
 
-  it('a server error on refresh keeps the dashboard and shows the message', async () => {
-    server.failMembersWith = 'Failed to load members';
+  it('a server error on refresh keeps the dashboard and the token, and shows a generic message', async () => {
+    server.failMembersWith = 'Erreur interne';
 
     click(byId('refresh-btn'));
     await settle();
 
     expectAdminScreen();
-    expect(currentToast().textContent).toBe('Failed to load members');
+    expect(localStorage.getItem(TOKEN_KEY)).toBe('good-token');
+    expect(currentToast().textContent).toBe('Erreur lors du chargement des données');
+  });
+
+  it('a network error on refresh keeps the dashboard and the token', async () => {
+    server.fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    click(byId('refresh-btn'));
+    await settle();
+
+    expectAdminScreen();
+    expect(localStorage.getItem(TOKEN_KEY)).toBe('good-token');
+    expect(currentToast().classList.contains('error')).toBe(true);
   });
 
   it('returns to the login form when the reload after an action is unauthorised', async () => {

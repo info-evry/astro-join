@@ -2,10 +2,11 @@
  * Members tab: filtering, sorting, selection and rendering of the members
  * table. Single-member/bulk CRUD actions live in `member-actions.js`.
  */
-import { $, escapeHtml, debounce } from '@info-evry/astro-design/scripts/dom';
+import { $, escapeHtml, debounce, numberOrNull } from '@info-evry/astro-design/scripts/dom';
 import { setTabBadge } from '@info-evry/astro-design/scripts/tabs';
-import { state, BUREAU_STATUSES } from '../state.js';
-import { getContactInfo, getStatusClass, getStatusLabel, formatMemberDate } from '../format.js';
+import { isBureauRole, statusLabel } from '../../../shared/membership.js';
+import { state } from '../state.js';
+import { getContactInfo, getStatusClass, formatMemberDate } from '../format.js';
 import { handleMemberSubmit, handleExport } from './member-actions.js';
 
 function getFiltered(members) {
@@ -16,7 +17,7 @@ function getFiltered(members) {
   let filtered = members;
   if (statusFilter) {
     filtered = statusFilter === 'bureau'
-      ? filtered.filter((m) => BUREAU_STATUSES.has(m.status))
+      ? filtered.filter((m) => isBureauRole(m.status))
       : filtered.filter((m) => m.status === statusFilter);
   }
   if (trackFilter) filtered = filtered.filter((m) => m.enrollment_track === trackFilter);
@@ -134,7 +135,7 @@ function memberRow(m) {
       <td>${m.student_id ? escapeHtml(m.student_id) : '<span class="text-muted">-</span>'}</td>
       <td class="team-col">${escapeHtml(m.enrollment_track)}</td>
       <td class="contact-cell">${getContactInfo(m)}</td>
-      <td class="badge-col"><span class="badge badge-${getStatusClass(m.status)}">${escapeHtml(getStatusLabel(m.status))}</span></td>
+      <td class="badge-col"><span class="badge badge-${getStatusClass(m.status)}">${escapeHtml(statusLabel(m.status))}</span></td>
       <td>${formatMemberDate(m.created_at, true)}</td>
       <td class="actions-col">
         <div class="action-buttons">
@@ -177,7 +178,7 @@ export function toggleMemberSelection(id, checked) {
   const selectAll = $('select-all');
   if (selectAll) {
     const visibleRows = document.querySelectorAll('#members-container tbody tr');
-    const allChecked = [...visibleRows].every((r) => state.selectedMembers.has(Number.parseInt(r.dataset.id)));
+    const allChecked = [...visibleRows].every((r) => state.selectedMembers.has(numberOrNull(r.dataset.id)));
     selectAll.checked = allChecked && visibleRows.length > 0;
   }
 }

@@ -5,11 +5,9 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
+import { setupSchema } from './helpers.js';
 
-beforeAll(async () => {
-  await env.DB.exec(`CREATE TABLE IF NOT EXISTS members (id INTEGER PRIMARY KEY AUTOINCREMENT, first_name TEXT NOT NULL, last_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT, student_id TEXT, enrollment_number TEXT, enrollment_track TEXT DEFAULT 'Autre', status TEXT DEFAULT 'pending', telegram TEXT, discord TEXT, notes TEXT, approved_at TEXT, expires_at TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))`);
-  await env.DB.exec(`CREATE TABLE IF NOT EXISTS membership_history (id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL, old_status TEXT, new_status TEXT NOT NULL, reason TEXT, created_at TEXT DEFAULT (datetime('now')))`);
-});
+beforeAll(setupSchema);
 
 describe('CSV Import - Header Parsing', () => {
   it('should parse French headers correctly', async () => {
@@ -80,7 +78,7 @@ describe('CSV Import - Row Validation', () => {
     const data = await response.json();
     expect(data.stats.imported).toBe(1);
     expect(data.stats.skipped).toBe(1);
-    expect(data.errors.some(e => e.includes('Invalid email'))).toBe(true);
+    expect(data.errors.some(e => e.includes('email invalide'))).toBe(true);
   });
 
   it('should skip rows with missing required fields', async () => {
@@ -105,7 +103,7 @@ describe('Member Update - Field Mapping', () => {
 
   beforeAll(async () => {
     const result = await env.DB.prepare(
-      'INSERT INTO members (first_name, last_name, email, status) VALUES (?, ?, ?, ?)'
+      "INSERT INTO members (first_name, last_name, email, status, enrollment_track) VALUES (?, ?, ?, ?, 'Autre')"
     ).bind('Update', 'Test', 'update-test@example.com', 'pending').run();
     memberId = result.meta.last_row_id;
   });
@@ -160,7 +158,7 @@ describe('Member Update - Field Mapping', () => {
 describe('Member Update - Status Changes', () => {
   it('should reject invalid status', async () => {
     const result = await env.DB.prepare(
-      'INSERT INTO members (first_name, last_name, email, status) VALUES (?, ?, ?, ?)'
+      "INSERT INTO members (first_name, last_name, email, status, enrollment_track) VALUES (?, ?, ?, ?, 'Autre')"
     ).bind('Status', 'Test', 'status-test@example.com', 'pending').run();
 
     const response = await SELF.fetch(`http://localhost/api/admin/members/${result.meta.last_row_id}`, {
@@ -176,12 +174,12 @@ describe('Member Update - Status Changes', () => {
 
     expect(response.status).toBe(400);
     const data = await response.json();
-    expect(data.error).toContain('Invalid status');
+    expect(data.error).toContain('Statut invalide');
   });
 
   it('should set approval dates when activating member', async () => {
     const result = await env.DB.prepare(
-      'INSERT INTO members (first_name, last_name, email, status) VALUES (?, ?, ?, ?)'
+      "INSERT INTO members (first_name, last_name, email, status, enrollment_track) VALUES (?, ?, ?, ?, 'Autre')"
     ).bind('Activate', 'Test', 'activate-test@example.com', 'pending').run();
 
     const response = await SELF.fetch(`http://localhost/api/admin/members/${result.meta.last_row_id}`, {
@@ -206,7 +204,7 @@ describe('Member Update - Status Changes', () => {
 
   it('should log status changes in history', async () => {
     const result = await env.DB.prepare(
-      'INSERT INTO members (first_name, last_name, email, status) VALUES (?, ?, ?, ?)'
+      "INSERT INTO members (first_name, last_name, email, status, enrollment_track) VALUES (?, ?, ?, ?, 'Autre')"
     ).bind('History', 'Test', 'history-test@example.com', 'pending').run();
 
     await SELF.fetch(`http://localhost/api/admin/members/${result.meta.last_row_id}`, {

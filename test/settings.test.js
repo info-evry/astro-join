@@ -251,3 +251,40 @@ describe('settings as seen by the public config endpoint', () => {
     expect(config.enrollmentTracks).toContain('L3 Informatique');
   });
 });
+
+describe('settings error shape and typed reads', () => {
+  it('answers a rejected body with { error, code: "invalid_settings" } naming every offending key', async () => {
+    const response = await putSettings({ membership_open: 'maybe', bogus: 1 });
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(Object.keys(body).sort()).toEqual(['code', 'error']);
+    expect(body.code).toBe('invalid_settings');
+    expect(body.error).toContain('bogus');
+    expect(body.error).toContain('membership_open');
+  });
+
+  it('returns booleans and arrays parsed (never the stored text) whichever form was written', async () => {
+    await putSettings({ membership_open: 'false', enrollment_tracks: ['Alpha'] });
+    const settings = await readSettings();
+    expect(settings.membership_open).toBe(false);
+    expect(settings.enrollment_tracks).toEqual(['Alpha']);
+
+    await putSettings({ membership_open: true });
+    expect((await readSettings()).membership_open).toBe(true);
+  });
+
+  it('writes all the keys of a request in one batch: a failing write leaves every key unchanged', async () => {
+    // A trigger makes the write of one key fail; the batch must roll the others back.
+    await env.DB.prepare(
+      "CREATE TRIGGER IF NOT EXISTS fail_tracks BEFORE INSERT ON settings WHEN NEW.key = 'enrollment_tracks' BEGIN SELECT RAISE(ABORT, 'boom'); END"
+    ).run();
+    try {
+      const response = await putSettings({ current_year: '2030-2031', enrollment_tracks: ['Alpha'] });
+      expect(response.status).toBe(500);
+      expect(await response.json()).toMatchObject({ code: 'internal_error' });
+      expect((await readRow('current_year')).value).toBe('2024-2025');
+    } finally {
+      await env.DB.prepare('DROP TRIGGER fail_tracks').run();
+    }
+  });
+});

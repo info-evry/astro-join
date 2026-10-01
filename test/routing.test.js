@@ -2,7 +2,7 @@
  * Routing, authentication and rate limiting across the whole API surface.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
-import { SELF } from 'cloudflare:test';
+import { SELF, env } from 'cloudflare:test';
 import { createRouter } from '../src/routes.js';
 import {
   BASE, ADMIN_TOKEN, adminHeaders, setupSchema, resetMembers,
@@ -22,7 +22,8 @@ const ADMIN_ROUTES = [
   ['PUT', '/api/admin/settings'],
   ['POST', '/api/admin/members/batch'],
   ['POST', '/api/admin/import'],
-  ['DELETE', '/api/admin/members/1']
+  ['DELETE', '/api/admin/members/1'],
+  ['DELETE', '/api/admin/members/batch']
 ];
 
 describe('unknown paths', () => {
@@ -54,7 +55,7 @@ describe('unknown paths', () => {
     const response = await SELF.fetch(`${BASE}${path}`, { headers: adminHeaders });
     expect(response.status).toBe(404);
     expect(response.headers.get('Content-Type')).toContain('application/json');
-    expect(await response.json()).toEqual({ error: 'Not Found' });
+    expect(await response.json()).toEqual({ error: 'Ressource introuvable', code: 'not_found' });
   });
 
   it('returns a JSON 404 for a known path with an unregistered method', async () => {
@@ -64,7 +65,7 @@ describe('unknown paths', () => {
       body: '{}'
     });
     expect(response.status).toBe(404);
-    expect((await response.json()).error).toBe('Not Found');
+    expect(await response.json()).toEqual({ error: 'Ressource introuvable', code: 'not_found' });
   });
 
   it('returns a JSON 404 for a known path on a deep unmatched method (PUT /api/stats)', async () => {
@@ -170,7 +171,7 @@ describe('admin authentication on every admin route', () => {
       const response = await SELF.fetch(`${BASE}${path}`, init);
 
       expect(response.status).toBe(401);
-      expect(await response.json()).toEqual({ error: 'Unauthorized' });
+      expect(await response.json()).toEqual({ error: 'Non autorisé', code: 'unauthorized' });
     });
   });
 
@@ -335,5 +336,92 @@ describe('rate limiting', () => {
     }
     const response = await applyFetch(validApplication(), { ip });
     expect(response.status).toBe(200);
+  });
+});
+
+describe('admin guard (defence in depth)', () => {
+  it.each(['/api/admin', '/api/admin/', '/api/admin/nope', '/api/admin/members/1/extra'])(
+    'answers 401, not 404, for GET %s without a token',
+    async (path) => {
+      const response = await SELF.fetch(`${BASE}${path}`);
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: 'Non autorisé', code: 'unauthorized' });
+    }
+  );
+
+  it('guards on a path-segment boundary: /api/administrator is just an unknown path', async () => {
+    const response = await SELF.fetch(`${BASE}/api/administrator`);
+    expect(response.status).toBe(404);
+    await response.arrayBuffer();
+  });
+
+  it('works without a CONFIG KV namespace: the ADMIN_TOKEN secret alone authenticates', async () => {
+    const response = await adminFetch('/api/admin/settings');
+    expect(response.status).toBe(200);
+    await response.arrayBuffer();
+  });
+
+  it('never lets a stray CONFIG KV binding override the ADMIN_TOKEN secret', async () => {
+    const fakeEnv = { DB: env.DB, ADMIN_TOKEN: 'secret-token', CONFIG: { get: async () => 'kv-token' } };
+    const call = (token) => createRouter().handle(
+      new Request(`${BASE}/api/admin/settings`, { headers: { Authorization: `Bearer ${token}` } }),
+      fakeEnv,
+      {}
+    );
+
+    expect((await call('secret-token')).status).toBe(200);
+    expect((await call('kv-token')).status).toBe(401);
+  });
+});
+
+describe('apply rate limit matches on path segments', () => {
+  const post = (path, ip) => SELF.fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip },
+    body: '{}'
+  });
+
+  it('limits /api/apply and anything below it', async () => {
+    const ip = '198.51.100.30';
+    for (let i = 0; i < 5; i++) expect((await post('/api/apply/extra', ip)).status).toBe(404);
+    expect((await post('/api/apply', ip)).status).toBe(429);
+  });
+
+  it('does not limit /api/applyX, which only shares the prefix', async () => {
+    const ip = '198.51.100.31';
+    for (let i = 0; i < 7; i++) expect((await post('/api/applyX', ip)).status).toBe(404);
+  });
+});
+
+describe('CORS allow-list', () => {
+  // Same list as allowedOriginsFor('join') in the maestro repo's src/sites.ts.
+  const ALLOWED = [
+    'https://asso.info-evry.fr',
+    'https://ndi-registration-dev.asso-1b5.workers.dev',
+    'https://asso-info-evry-dev.asso-1b5.workers.dev',
+    'https://join-info-evry-dev.asso-1b5.workers.dev',
+    'http://localhost:4321',
+    'http://localhost:3000',
+    'http://127.0.0.1:4321',
+    'http://127.0.0.1:3000'
+  ];
+
+  it.each(ALLOWED)('answers a preflight from %s with that origin', async (origin) => {
+    const response = await SELF.fetch(`${BASE}/api/apply`, { method: 'OPTIONS', headers: { Origin: origin } });
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(origin);
+    expect(response.headers.get('Access-Control-Allow-Methods')).toContain('DELETE');
+  });
+
+  it('does not allow the ndi subdomain (it is only in the ndi list)', async () => {
+    const response = await SELF.fetch(`${BASE}/api/config`, { headers: { Origin: 'https://ndi.asso.info-evry.fr' } });
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://asso.info-evry.fr');
+    await response.arrayBuffer();
+  });
+
+  it('marks responses as varying on Origin', async () => {
+    const response = await SELF.fetch(`${BASE}/api/config`);
+    expect(response.headers.get('Vary')).toContain('Origin');
+    await response.arrayBuffer();
   });
 });

@@ -2,8 +2,10 @@
  * Public member endpoints
  */
 
-import { json, error } from 'astro-core/router';
-import { DEFAULT_ENROLLMENT_TRACKS } from '../lib/settings-defaults.js';
+import { json } from 'astro-core/router';
+import { serverError } from 'astro-core/http';
+import { loadMembershipConfig } from '../lib/config.js';
+import { countMembers } from '../lib/member-stats.js';
 
 /**
  * Get membership settings/config
@@ -11,55 +13,22 @@ import { DEFAULT_ENROLLMENT_TRACKS } from '../lib/settings-defaults.js';
  */
 export async function getConfig(request, env) {
   try {
-    // Get settings from database
-    const settings = await env.DB.prepare(
-      'SELECT key, value FROM settings'
-    ).all();
-
-    const config = {};
-    for (const row of settings.results || []) {
-      try {
-        config[row.key] = JSON.parse(row.value);
-      } catch {
-        config[row.key] = row.value;
-      }
-    }
-
-    return json({
-      config: {
-        // Stored as the string 'false' but parsed back to a boolean above.
-        membershipOpen: config.membership_open !== false && config.membership_open !== 'false',
-        currentYear: config.current_year || '2024-2025',
-        enrollmentTracks: config.enrollment_tracks || DEFAULT_ENROLLMENT_TRACKS
-      }
-    });
+    return json({ config: await loadMembershipConfig(env.DB) });
   } catch (error_) {
-    console.error('Config error:', error_);
-    return error('Failed to load configuration', 500);
+    return serverError('Config error:', error_);
   }
 }
 
 /**
- * Get membership stats (public)
+ * Get membership stats (public). `activeMembers` counts every active-like
+ * status (active, honor and the bureau), like the admin dashboard does.
  * GET /api/stats
  */
 export async function getStats(request, env) {
   try {
-    const stats = await env.DB.prepare(`
-      SELECT
-        COUNT(CASE WHEN status = 'active' THEN 1 END) as active_members,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_applications
-      FROM members
-    `).first();
-
-    return json({
-      stats: {
-        activeMembers: stats?.active_members || 0,
-        pendingApplications: stats?.pending_applications || 0
-      }
-    });
+    const { active, pending } = await countMembers(env.DB);
+    return json({ stats: { activeMembers: active, pendingApplications: pending } });
   } catch (error_) {
-    console.error('Stats error:', error_);
-    return error('Failed to load stats', 500);
+    return serverError('Stats error:', error_);
   }
 }

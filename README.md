@@ -42,14 +42,15 @@ astro-join/
 │   │   ├── manage.astro      # Admin dashboard
 │   │   └── api/[...slug].ts  # API route handler
 │   ├── api/                  # API handlers
-│   │   ├── admin.js          # Admin CRUD operations
+│   │   ├── admin.js          # Admin members, batch, stats and settings
+│   │   ├── admin-csv.js      # Admin CSV export / import
 │   │   ├── apply.js          # Application submission
-│   │   └── members.js        # Public member stats
-│   ├── lib/
-│   │   └── settings-defaults.js   # Default values for admin settings
-│   │       (router, validation, and rate limiting come from `astro-core`)
+│   │   └── members.js        # Public config and stats
+│   ├── lib/                  # Worker-only helpers (admin auth options, settings reader, counters, SQL)
+│   │   (router, auth, csv, ids, d1, validation, rate limiting and error helpers come from `astro-core`)
 │   ├── shared/
-│   │   └── response.js       # JSON response helpers
+│   │   └── membership.js     # Membership model used by the Worker AND the dashboard (see below)
+│   ├── client/               # Browser code: public form and admin dashboard
 │   ├── layouts/
 │   │   ├── BaseLayout.astro  # Public layout
 │   │   └── AdminLayout.astro # Admin layout
@@ -153,18 +154,43 @@ wrangler secret put ADMIN_TOKEN
 | `GET` | `/api/stats` | Public membership statistics |
 | `POST` | `/api/apply` | Submit membership application |
 
+`POST /api/apply` answers `403 membership_closed` while the `membership_open` setting is off; the public form reads `membershipOpen` from `/api/config` and disables itself with an explanation.
+
 ### Admin (Authorization header required)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/admin/members` | List all members with statistics |
 | `GET` | `/api/admin/stats` | Detailed admin statistics |
-| `GET` | `/api/admin/settings` | Get settings |
-| `PUT` | `/api/admin/settings` | Update settings |
-| `GET` | `/api/admin/export` | Export members to CSV |
-| `PUT` | `/api/admin/members/:id` | Update member |
+| `GET` | `/api/admin/settings` | Get settings (typed values: booleans and arrays come back parsed) |
+| `PUT` | `/api/admin/settings` | Update settings (atomic) |
+| `GET` | `/api/admin/export` | Export members to CSV (`?status=<status>` or `?status=bureau`; any other value is a 400) |
+| `POST` | `/api/admin/import` | Import members from CSV (`{ csv }`, 2000 rows maximum) |
+| `PUT` | `/api/admin/members/:id` | Update member (fields and/or status, atomic) |
 | `DELETE` | `/api/admin/members/:id` | Delete member |
-| `POST` | `/api/admin/members/batch` | Batch update members |
+| `POST` | `/api/admin/members/batch` | Batch status change (`{ memberIds, status, reason }`, 1000 ids maximum) |
+| `DELETE` | `/api/admin/members/batch` | Batch delete (`{ ids }`, 1000 ids maximum, atomic) |
+
+### Errors
+
+Every error body is `{ error, code }` (`astro-core/http`): `error` is a French message, `code` the stable identifier to switch on
+(`invalid_body`, `invalid_id`, `unauthorized`, `not_found`, `conflict`, `payload_too_large`, `internal_error`, plus domain codes such as
+`invalid_status`, `invalid_field`, `invalid_track`, `invalid_settings`, `no_changes`, `too_many_ids`, `too_many_rows`, `membership_closed`).
+A malformed id (path or body) is `400 invalid_id`, a malformed/null/array JSON body `400 invalid_body`, a duplicate (email, bureau role already
+held) `409 conflict`, and a real failure `500 internal_error` whose body never contains the underlying message. (The rate limiter's 429 message
+is still English, see astro-core.)
+
+### CSV
+
+The export (`GET /api/admin/export`) is `;`-separated with a UTF-8 BOM, so French Excel opens it correctly. Columns: ID, Prénom, Nom, Email,
+Numéro étudiant, Numéro inscription, Cursus, Téléphone, Telegram, Discord, Statut, Notes, Date adhésion, Date approbation, Date expiration.
+A cell starting with `= + - @ TAB CR |` is prefixed with `'` (formula injection); phone numbers are left as they are.
+
+The import accepts `,` `;` or tab (detected from the header line), removes that `'` guard, and re-imports its own exports (and the previous comma
+format). Prénom, Nom and Email are required; Téléphone, Numéro étudiant, Numéro inscription, Cursus, Telegram, Discord, Statut and Notes are optional
+and a blank cell never overwrites a stored value. Existing members are matched by email. A row that cannot be imported (missing field, invalid email,
+unknown status label, field too long, bureau role already taken) is reported as `Ligne N : ...` and skipped; the others are written in batches.
+Members who become active are approved (`approved_at`, `expires_at`) and every status change is written to `membership_history`.
 
 ### Rate Limiting
 
@@ -183,35 +209,52 @@ Settings are stored as key/value rows in the `settings` table and managed via `G
 
 | Key | Type | Validation |
 |-----|------|------------|
-| `membership_open` | boolean-ish | `true`, `false`, `'true'`, or `'false'` |
+| `membership_open` | boolean-ish | `true`, `false`, `'true'`, or `'false'` on write; `GET` always returns a real boolean |
 | `current_year` | string | Academic year range `YYYY-YYYY` (second year = first + 1), e.g. `2024-2025` |
 | `enrollment_tracks` | array of strings | 1-20 entries, each a non-empty string up to 60 characters |
 
-`enrollment_tracks` also determines which `enrollmentTrack` values `POST /api/apply` accepts; it falls back to the defaults in `src/lib/settings-defaults.js` when unset.
+`enrollment_tracks` also determines which `enrollmentTrack` values `POST /api/apply` and `PUT /api/admin/members/:id` accept (a member may keep a
+track they already have); it falls back to `DEFAULT_ENROLLMENT_TRACKS` in `src/shared/membership.js` when unset. The default academic year is
+`DEFAULT_ACADEMIC_YEAR` in the same file (a test checks `db/schema.sql` seeds the same value).
 
 ## Member Statuses
+
+The vocabulary lives in `src/shared/membership.js`, imported by the Worker and by the dashboard (one table of French labels, one definition of
+"active"). `members.status` is free text in the database (no CHECK constraint): the values below are the ones the application reads and writes.
 
 | Status | Description |
 |--------|-------------|
 | `pending` | Application submitted, awaiting review |
 | `active` | Approved active member |
+| `honor` | Honorary member |
+| `president` | Bureau - President (unique) |
+| `vice_president` | Bureau - Vice President (unique) |
+| `secretary` | Bureau - Secretary (unique) |
+| `treasurer` | Bureau - Treasurer (unique) |
+| `honorary_president` | Bureau - Honorary President (several allowed) |
 | `rejected` | Application rejected |
 | `expired` | Membership expired |
-| `honor` | Honorary member |
-| `president` | Bureau - President |
-| `vicepresident` | Bureau - Vice President |
-| `treasurer` | Bureau - Treasurer |
-| `secretary` | Bureau - Secretary |
+
+`active`, `honor` and every bureau role count as **active members** (`ACTIVE_STATUSES`): `/api/stats`, the admin members list and the admin
+stats all use that one definition. A member entering that set from outside it (pending, rejected, expired) is approved: `approved_at` is set
+(SQLite `YYYY-MM-DD HH:MM:SS` UTC, like `created_at`) and `expires_at` is the end of the academic year (31 August, `expiryDateFor`). Moving
+between active statuses keeps the dates.
+
+Bureau uniqueness is enforced by an atomic `UPDATE ... WHERE NOT EXISTS` (a second holder is a `409`). The `bureau_positions` table created by
+`migrate-001-member-roles.sql` is reserved and unused; it is kept in deployed databases and must not be dropped without a reviewed migration.
 
 ## Database Schema
 
 ### Members
 - `id`, `first_name`, `last_name`, `email`
 - `enrollment_track` (L3 Info, M1 Info, etc.)
-- `enrollment_number` (student ID)
+- `student_id`, `enrollment_number` (student numbers)
 - `status` (pending, active, rejected, etc.)
 - `discord`, `telegram`, `phone` (contact info)
-- `created_at`, `approved_at`
+- `notes`, `created_at`, `approved_at`, `expires_at`
+
+`db/schema.sql` now creates `enrollment_number` itself; `migrate-002-enrollment-number.sql` still adds it (and its index) to databases created
+before. On a database built from the schema that migration fails with `duplicate column name`, which must be treated as "already applied".
 
 ## Related Repositories
 

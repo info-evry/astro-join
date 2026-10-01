@@ -1,21 +1,14 @@
 /**
- * Formatting helpers for member rows.
+ * Formatting helpers for member rows. Status labels come from the shared
+ * membership model (`statusLabel`); only the badge colours are defined here.
  */
 import { escapeHtml, formatDate } from '@info-evry/astro-design/scripts/dom';
-import { STATUS_LABELS } from './state.js';
 
 const STATUS_BADGE_CLASSES = {
   active: 'success',
   pending: 'warning',
   rejected: 'error',
   expired: 'secondary'
-};
-
-const STATUS_TABLE_LABELS = {
-  active: 'Actif',
-  pending: 'En attente',
-  rejected: 'Refusé',
-  expired: 'Expiré'
 };
 
 export function getContactInfo(member) {
@@ -27,19 +20,11 @@ export function getContactInfo(member) {
 }
 
 export function getStatusClass(status) {
-  return STATUS_BADGE_CLASSES[status] || 'secondary';
-}
-
-export function getStatusLabel(status) {
-  return STATUS_TABLE_LABELS[status] || fullStatusLabel(status);
+  return Object.hasOwn(STATUS_BADGE_CLASSES, status) ? STATUS_BADGE_CLASSES[status] : 'secondary';
 }
 
 /** Format a member date, matching the previous "dd/mm/yyyy[ hh:mm]" look. */
 export function formatMemberDate(dateStr, includeTime = false) {
   if (!dateStr) return '-';
   return formatDate(dateStr, includeTime ? { dateStyle: 'short', timeStyle: 'short' } : { dateStyle: 'short' });
-}
-
-export function fullStatusLabel(status) {
-  return STATUS_LABELS[status] || status;
 }

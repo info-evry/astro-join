@@ -1,13 +1,12 @@
 /**
  * Shared helpers for worker-side API tests.
  *
- * The schema is loaded from the real db/ migrations (not hand-rolled copies)
- * so foreign keys, indexes and the enrollment_number migration column behave
- * exactly like production.
+ * The schema is loaded from the real db/schema.sql (not a hand-rolled copy) so
+ * foreign keys, indexes and the enrollment_number column behave exactly like
+ * production.
  */
 import { env, SELF } from 'cloudflare:test';
 import schemaSql from '../db/schema.sql?raw';
-import enrollmentMigrationSql from '../db/migrate-002-enrollment-number.sql?raw';
 
 export const BASE = 'http://localhost';
 export const ADMIN_TOKEN = 'test-admin-token';
@@ -32,12 +31,6 @@ function toStatements(sql) {
 export async function setupSchema() {
   for (const statement of toStatements(schemaSql)) {
     await env.DB.prepare(statement).run();
-  }
-  const { results } = await env.DB.prepare('PRAGMA table_info(members)').all();
-  if (!results.some((column) => column.name === 'enrollment_number')) {
-    for (const statement of toStatements(enrollmentMigrationSql)) {
-      await env.DB.prepare(statement).run();
-    }
   }
 }
 

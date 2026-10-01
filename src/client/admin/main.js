@@ -3,22 +3,30 @@
  *
  * Bootstraps the admin dashboard: creates the API client, wires the
  * auth/refresh/tab/modal behavior, and loads data for every tab.
+ *
+ * Authentication (stored-token auto-login, login button and Enter key, error
+ * messages, session expiry) is astro-design's `createAdminShell`: the stored
+ * token is cleared ONLY when the server answers 401, never on a network error
+ * or a 5xx.
  */
 import { $ } from '@info-evry/astro-design/scripts/dom';
 import { toastSuccess, toastError } from '@info-evry/astro-design/scripts/toast';
 import { initModals } from '@info-evry/astro-design/scripts/modal';
 import { initTabs } from '@info-evry/astro-design/scripts/tabs';
-import { createApiClient, ApiError } from '@info-evry/astro-design/scripts/api-client';
+import { createApiClient } from '@info-evry/astro-design/scripts/api-client';
+import { createAdminShell } from '@info-evry/astro-design/scripts/admin-shell';
+import { bindDelegation } from '@info-evry/astro-design/scripts/delegation';
 import { statCardHtml } from '@info-evry/astro-design/scripts/templates';
 import { setMembersData } from './state.js';
-import { buildActions, bindDelegation } from './actions.js';
+import { buildActions } from './actions.js';
 import { renderMembers, populateTrackFilter, initMembers } from './features/members.js';
 import { renderPendingApplications } from './features/pending.js';
 import { renderBureau } from './features/bureau.js';
 import { initImport } from './features/import.js';
 import { loadSettings, initSettings } from './features/settings.js';
 
-const { api, setToken, getToken, clearToken } = createApiClient({ tokenKey: 'join_admin_token' });
+const client = createApiClient({ tokenKey: 'join_admin_token' });
+const { api } = client;
 
 function renderStats(stats) {
   $('stats-grid').innerHTML = [
@@ -29,121 +37,60 @@ function renderStats(stats) {
   ].join('');
 }
 
+/** Fetch and render the members. Throws on failure: the admin shell decides what a 401 or a network error means. */
 async function loadData() {
-  try {
-    const data = await api('/admin/members');
-    const members = data.members || [];
-    setMembersData(members, data.stats);
+  const data = await api('/admin/members');
+  const members = data.members || [];
+  setMembersData(members, data.stats);
 
-    renderStats(data.stats);
-    renderBureau(members);
-    renderPendingApplications(members);
-    renderMembers(members);
-    populateTrackFilter(members);
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      showAuth();
-      toastError('Session expirée');
-    } else {
-      toastError(error.message);
-    }
-    throw error;
-  }
+  renderStats(data.stats);
+  renderBureau(members);
+  renderPendingApplications(members);
+  renderMembers(members);
+  populateTrackFilter(members);
 }
 
-/**
- * Reload for fire-and-forget callers (feature modules, refresh button).
- * loadData already reports failures (toast / back to the login screen), so
- * swallowing the rethrow here avoids unhandled promise rejections.
- * @returns {Promise<boolean>} whether the reload succeeded
- */
-async function reloadData() {
-  try {
-    await loadData();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function showAuth() {
-  $('auth-section').classList.remove('hidden');
-  $('admin-content').classList.add('hidden');
-}
-
-function showAdmin() {
-  $('auth-section').classList.add('hidden');
-  $('admin-content').classList.remove('hidden');
-}
-
-function showAuthError(message) {
-  const authError = $('auth-error');
-  authError.textContent = message;
-  authError.classList.remove('hidden');
-}
-
-let authedModulesReady = false;
-
-function initAuthedModules() {
-  if (authedModulesReady) return;
-  authedModulesReady = true;
+/** Modules that need an authenticated session; the shell runs this once, after the first successful login. */
+async function initAuthedModules() {
   initImport(api, reloadData);
   initSettings(api);
+  await loadSettings(api);
 }
 
-async function handleAuth() {
-  const token = $('admin-token').value.trim();
-  if (!token) {
-    showAuthError('Token requis');
-    return;
-  }
+const shell = createAdminShell({
+  api: client,
+  selectors: {
+    authSection: '#auth-section',
+    adminContent: '#admin-content',
+    tokenInput: '#admin-token',
+    authBtn: '#auth-btn',
+    authError: '#auth-error'
+  },
+  load: loadData,
+  afterLogin: initAuthedModules
+});
 
-  setToken(token);
-  $('auth-error').classList.add('hidden');
-
-  try {
-    await loadData();
-    await loadSettings(api);
-    showAdmin();
-    initAuthedModules();
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      showAuthError('Token invalide');
-      clearToken();
-    } else {
-      showAuthError(error.message);
-    }
-  }
+/**
+ * Reload for fire-and-forget callers (feature modules, refresh button): never
+ * throws; a 401 goes back to the login screen, other failures are toasted.
+ * @returns {Promise<boolean>} whether the reload succeeded
+ */
+function reloadData() {
+  return shell.reload();
 }
 
 async function init() {
   const { actions, changes } = buildActions({ api, loadData: reloadData });
-  bindDelegation(actions, changes);
+  bindDelegation(actions, changes, { onError: (error) => toastError(error.message) });
 
   initTabs();
   initModals();
   initMembers(api, reloadData);
 
-  $('auth-btn').addEventListener('click', handleAuth);
-  $('admin-token').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleAuth();
-  });
   $('refresh-btn').addEventListener('click', async () => {
     if (await reloadData()) toastSuccess('Données actualisées');
   });
-  if (getToken()) {
-    try {
-      await loadData();
-      await loadSettings(api);
-      showAdmin();
-      initAuthedModules();
-    } catch {
-      showAuth();
-      clearToken();
-    }
-  } else {
-    showAuth();
-  }
+  await shell.init();
 }
 
 if (document.readyState === 'loading') {

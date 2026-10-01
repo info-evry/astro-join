@@ -3,7 +3,9 @@
  */
 
 import { Router } from 'astro-core/router';
-import { createRateLimiter, pathPrefix } from 'astro-core/ratelimit';
+import { createAdminGuard } from 'astro-core/auth';
+import { createRateLimiter, pathPrefix, ADMIN_RATE_LIMIT } from 'astro-core/ratelimit';
+import { ADMIN_AUTH_OPTIONS } from './lib/admin-auth.js';
 import { apply } from './api/apply.js';
 import { getConfig, getStats } from './api/members.js';
 import {
@@ -12,23 +14,28 @@ import {
   updateMember,
   deleteMember,
   batchUpdateMembers,
-  exportMembers,
+  deleteMembersBatch,
   getSettings,
-  updateSettings,
-  importCSV
+  updateSettings
 } from './api/admin.js';
+import { exportMembers, importCSV } from './api/admin-csv.js';
 
 export function createRouter() {
   // Pass base path to handle subpath deployments
   const router = new Router('/adhesion');
 
-  // Rate limit sensitive endpoints (backed by the RATE_LIMIT KV namespace)
+  // Rate limit sensitive endpoints (backed by the RATE_LIMIT KV namespace).
+  // It runs before the admin guard so failed token guesses are counted too.
   router.use(createRateLimiter({
     rules: [
-      { name: 'apply', methods: ['POST'], match: (p) => p === '/api/apply', limit: 5, windowSec: 600 },
-      { name: 'admin', match: pathPrefix('/api/admin/'), limit: 60, windowSec: 60 }
+      { name: 'apply', methods: ['POST'], match: pathPrefix('/api/apply'), limit: 5, windowSec: 600 },
+      ADMIN_RATE_LIMIT
     ]
   }));
+
+  // Defence in depth: nothing under /api/admin is reachable without the admin
+  // token even if a handler forgets to wrap itself in adminHandler().
+  router.use(createAdminGuard('/api/admin/', ADMIN_AUTH_OPTIONS));
 
   // Public API routes
   router.get('/api/config', getConfig);
@@ -47,7 +54,9 @@ export function createRouter() {
   router.post('/api/admin/members/batch', batchUpdateMembers);
   router.post('/api/admin/import', importCSV);
 
-  // Admin API routes - Delete
+  // Admin API routes - Delete. The literal "batch" route must come before the
+  // ":id" pattern, which would otherwise capture it.
+  router.delete('/api/admin/members/batch', deleteMembersBatch);
   router.delete('/api/admin/members/:id', deleteMember);
 
   return router;
