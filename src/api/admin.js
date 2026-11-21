@@ -60,26 +60,32 @@ export const adminStats = adminHandler(async (request, env) => {
   try {
     const stats = await countMembers(env.DB);
 
-    const bureau = await env.DB.prepare(`
+    const bureau = await env.DB.prepare(
+      `
       SELECT id, first_name, last_name, email, status
       FROM members
       WHERE status IN (${BUREAU_SQL})
-    `).all();
+    `
+    ).all();
 
-    const tracks = await env.DB.prepare(`
+    const tracks = await env.DB.prepare(
+      `
       SELECT enrollment_track, COUNT(*) as count
       FROM members
       WHERE status IN (${ACTIVE_STATUSES_SQL})
       GROUP BY enrollment_track
       ORDER BY count DESC
-    `).all();
+    `
+    ).all();
 
-    const recent = await env.DB.prepare(`
+    const recent = await env.DB.prepare(
+      `
       SELECT * FROM members
       WHERE status = 'pending'
       ORDER BY created_at DESC
       LIMIT 10
-    `).all();
+    `
+    ).all();
 
     return json({
       stats,
@@ -134,7 +140,8 @@ function validateUpdateBody(body) {
   }
   if (body.email !== undefined && !isValidEmail(body.email)) return 'Email : format invalide';
   const { reason } = body;
-  if (reason !== undefined && reason !== null && typeof reason !== 'string') return 'Motif : doit être une chaîne de caractères';
+  if (reason !== undefined && reason !== null && typeof reason !== 'string')
+    return 'Motif : doit être une chaîne de caractères';
   if (isTooLong(reason, LIMITS.text)) return `Motif : trop long (${LIMITS.text} caractères maximum)`;
   return null;
 }
@@ -230,16 +237,23 @@ function planMemberUpdate(db, memberId, body, current) {
   }
 
   const statements = [
-    db.prepare(`UPDATE members SET ${[...sets, 'updated_at = CURRENT_TIMESTAMP'].join(', ')} WHERE id = ?${guard}`)
+    db
+      .prepare(`UPDATE members SET ${[...sets, 'updated_at = CURRENT_TIMESTAMP'].join(', ')} WHERE id = ?${guard}`)
       .bind(...values, memberId, ...guardValues)
   ];
   if (statusChanged) {
     // Only inserted when the UPDATE above really moved the member to the new
     // status (a refused role leaves the member in its old one).
-    statements.push(db.prepare(`
+    statements.push(
+      db
+        .prepare(
+          `
       INSERT INTO membership_history (member_id, old_status, new_status, reason)
       SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM members WHERE id = ? AND status = ?)
-    `).bind(memberId, current.status, body.status, body.reason || DEFAULT_STATUS_REASON, memberId, body.status));
+    `
+        )
+        .bind(memberId, current.status, body.status, body.reason || DEFAULT_STATUS_REASON, memberId, body.status)
+    );
   }
   return { statements, role };
 }
@@ -250,8 +264,10 @@ function planMemberUpdate(db, memberId, body, current) {
  */
 async function updateRefusal(db, memberId, plan) {
   if (plan.role) {
-    const holder = await db.prepare('SELECT first_name, last_name FROM members WHERE status = ? AND id != ?')
-      .bind(plan.role, memberId).first();
+    const holder = await db
+      .prepare('SELECT first_name, last_name FROM members WHERE status = ? AND id != ?')
+      .bind(plan.role, memberId)
+      .first();
     if (holder) {
       return conflict(`Le rôle ${statusLabel(plan.role)} est déjà attribué à ${holder.first_name} ${holder.last_name}`);
     }
@@ -306,10 +322,14 @@ function readIdList(value) {
  */
 function batchChunkStatements(db, ids, status, reason, now) {
   const placeholders = inClause(ids.length);
-  const history = db.prepare(`
+  const history = db
+    .prepare(
+      `
     INSERT INTO membership_history (member_id, old_status, new_status, reason)
     SELECT id, status, ?, ? FROM members WHERE id IN (${placeholders}) AND status != ?
-  `).bind(status, reason || DEFAULT_BATCH_REASON, ...ids, status);
+  `
+    )
+    .bind(status, reason || DEFAULT_BATCH_REASON, ...ids, status);
 
   const touch = 'status = ?, updated_at = CURRENT_TIMESTAMP';
   const target = `id IN (${placeholders})`;
@@ -322,8 +342,13 @@ function batchChunkStatements(db, ids, status, reason, now) {
     // Order matters: the first UPDATE moves already-active members to `active`
     // (dates untouched), so the second one only sees the members that were not active.
     updates: [
-      db.prepare(`UPDATE members SET ${touch} WHERE ${target} AND status IN (${ACTIVE_STATUSES_SQL})`).bind(status, ...ids),
-      db.prepare(`UPDATE members SET ${touch}, approved_at = ?, expires_at = ? WHERE ${target} AND status NOT IN (${ACTIVE_STATUSES_SQL})`)
+      db
+        .prepare(`UPDATE members SET ${touch} WHERE ${target} AND status IN (${ACTIVE_STATUSES_SQL})`)
+        .bind(status, ...ids),
+      db
+        .prepare(
+          `UPDATE members SET ${touch}, approved_at = ?, expires_at = ? WHERE ${target} AND status NOT IN (${ACTIVE_STATUSES_SQL})`
+        )
         .bind(status, dates.approvedAt, dates.expiresAt, ...ids)
     ]
   };
@@ -386,9 +411,11 @@ export const deleteMembersBatch = adminHandler(async (request, env) => {
 
     // One atomic batch. The rows are counted through RETURNING: `meta.changes`
     // would also count the history rows removed by the ON DELETE CASCADE.
-    const results = await env.DB.batch(chunk(list.ids, SAFE_IDS_PER_STATEMENT).map((part) =>
-      env.DB.prepare(`DELETE FROM members WHERE id IN (${inClause(part.length)}) RETURNING id`).bind(...part)
-    ));
+    const results = await env.DB.batch(
+      chunk(list.ids, SAFE_IDS_PER_STATEMENT).map((part) =>
+        env.DB.prepare(`DELETE FROM members WHERE id IN (${inClause(part.length)}) RETURNING id`).bind(...part)
+      )
+    );
     const deleted = results.reduce((total, result) => total + (result.results?.length ?? 0), 0);
     if (deleted === 0) return notFound('Aucun membre correspondant');
     return success(`${deleted} membre(s) supprimé(s)`, { deleted });
@@ -425,7 +452,8 @@ const SETTINGS_SCHEMA = {
 function settingsProblem({ unknown, invalid }) {
   const parts = [];
   if (unknown.length > 0) parts.push(`Paramètre(s) inconnu(s) : ${unknown.join(', ')}`);
-  if (invalid.length > 0) parts.push(`Valeur invalide pour : ${invalid.flatMap((entry) => Object.keys(entry)).join(', ')}`);
+  if (invalid.length > 0)
+    parts.push(`Valeur invalide pour : ${invalid.flatMap((entry) => Object.keys(entry)).join(', ')}`);
   return parts.join(' ; ');
 }
 
@@ -442,12 +470,16 @@ export const updateSettings = adminHandler(async (request, env) => {
     if (!result.ok) return badRequest(settingsProblem(result), 'invalid_settings');
     if (result.entries.length === 0) return success('Paramètres enregistrés');
 
-    await env.DB.batch(result.entries.map(([key, value]) =>
-      env.DB.prepare(`
+    await env.DB.batch(
+      result.entries.map(([key, value]) =>
+        env.DB.prepare(
+          `
         INSERT OR REPLACE INTO settings (key, value, updated_at)
         VALUES (?, ?, CURRENT_TIMESTAMP)
-      `).bind(key, typeof value === 'object' ? JSON.stringify(value) : String(value))
-    ));
+      `
+        ).bind(key, typeof value === 'object' ? JSON.stringify(value) : String(value))
+      )
+    );
     return success('Paramètres enregistrés');
   } catch (error_) {
     return serverError('Update settings error:', error_);

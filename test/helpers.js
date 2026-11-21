@@ -62,7 +62,9 @@ export async function insertMember(overrides = {}) {
   const columns = Object.keys(row);
   const result = await env.DB.prepare(
     `INSERT INTO members (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`
-  ).bind(...columns.map((column) => row[column])).run();
+  )
+    .bind(...columns.map((column) => row[column]))
+    .run();
   return result.meta.last_row_id;
 }
 
@@ -71,9 +73,9 @@ export async function getMember(id) {
 }
 
 export async function getHistory(memberId) {
-  const { results } = await env.DB.prepare(
-    'SELECT * FROM membership_history WHERE member_id = ? ORDER BY id'
-  ).bind(memberId).all();
+  const { results } = await env.DB.prepare('SELECT * FROM membership_history WHERE member_id = ? ORDER BY id')
+    .bind(memberId)
+    .all();
   return results;
 }
 
@@ -113,7 +115,5 @@ export function validApplication(overrides = {}) {
 
 /** Upsert a raw setting row (bypasses admin API validation). */
 export async function putSetting(key, value) {
-  await env.DB.prepare(
-    'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)'
-  ).bind(key, value).run();
+  await env.DB.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind(key, value).run();
 }

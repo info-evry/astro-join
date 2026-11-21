@@ -55,7 +55,7 @@ function validateForm(data) {
  * Show form errors
  */
 function showErrors(errors, errorsDiv) {
-  const listItems = errors.map(e => `<li>${escapeHtml(e)}</li>`).join('');
+  const listItems = errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('');
   errorsDiv.innerHTML = `<ul>${listItems}</ul>`;
   errorsDiv.classList.remove('hidden');
   errorsDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -124,9 +124,8 @@ async function handleSubmit(e, elements, client) {
   try {
     const result = await client.post('/apply', data);
 
-    elements.successMessage.textContent = result?.message || 'Votre demande d\'adhésion a bien été enregistrée.';
+    elements.successMessage.textContent = result?.message || "Votre demande d'adhésion a bien été enregistrée.";
     elements.successModal.classList.remove('hidden');
-
   } catch (error) {
     if (error.code === 'membership_closed') {
       closeForm(elements, error.message);

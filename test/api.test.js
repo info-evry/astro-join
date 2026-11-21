@@ -49,9 +49,13 @@ describe('Public API', () => {
 
     it('should count active and pending members correctly', async () => {
       // Add active member
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Active', 'User', 'active@test.com', 'L3 Informatique', 'active', '@active')`);
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Active', 'User', 'active@test.com', 'L3 Informatique', 'active', '@active')`
+      );
       // Add pending member
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Pending', 'User', 'pending@test.com', 'L3 Informatique', 'pending', '@pending')`);
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Pending', 'User', 'pending@test.com', 'L3 Informatique', 'pending', '@pending')`
+      );
 
       const response = await SELF.fetch('http://localhost/api/stats');
       const data = await response.json();
@@ -80,9 +84,7 @@ describe('Public API', () => {
       expect(data.memberId).toBeDefined();
 
       // Verify in database
-      const member = await env.DB.prepare(
-        'SELECT * FROM members WHERE email = ?'
-      ).bind('john.doe@test.com').first();
+      const member = await env.DB.prepare('SELECT * FROM members WHERE email = ?').bind('john.doe@test.com').first();
 
       expect(member).toBeDefined();
       expect(member.first_name).toBe('John');
@@ -104,9 +106,9 @@ describe('Public API', () => {
       });
 
       const data = await response.json();
-      const history = await env.DB.prepare(
-        'SELECT * FROM membership_history WHERE member_id = ?'
-      ).bind(data.memberId).first();
+      const history = await env.DB.prepare('SELECT * FROM membership_history WHERE member_id = ?')
+        .bind(data.memberId)
+        .first();
 
       expect(history).toBeDefined();
       expect(history.new_status).toBe('pending');
@@ -196,7 +198,9 @@ describe('Public API', () => {
 
     it('should reject duplicate email for active member', async () => {
       // Create active member directly
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Active', 'Member', 'active@test.com', 'L3 Informatique', 'active', '@active')`);
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Active', 'Member', 'active@test.com', 'L3 Informatique', 'active', '@active')`
+      );
 
       // Try to apply with same email
       const response = await SELF.fetch('http://localhost/api/apply', {
@@ -261,9 +265,9 @@ describe('Public API', () => {
 
       expect(response.status).toBe(200);
 
-      const member = await env.DB.prepare(
-        'SELECT email FROM members WHERE email = ?'
-      ).bind('upper.case@test.com').first();
+      const member = await env.DB.prepare('SELECT email FROM members WHERE email = ?')
+        .bind('upper.case@test.com')
+        .first();
 
       expect(member).toBeDefined();
     });
@@ -283,9 +287,7 @@ describe('Public API', () => {
 
       expect(response.status).toBe(200);
 
-      const member = await env.DB.prepare(
-        'SELECT * FROM members WHERE email = ?'
-      ).bind('trim@test.com').first();
+      const member = await env.DB.prepare('SELECT * FROM members WHERE email = ?').bind('trim@test.com').first();
 
       expect(member.first_name).toBe('John');
       expect(member.last_name).toBe('Doe');
@@ -348,7 +350,7 @@ describe('Public API', () => {
 describe('Admin API', () => {
   const adminHeaders = {
     'Content-Type': 'application/json',
-    'Authorization': 'Bearer test-admin-token'
+    Authorization: 'Bearer test-admin-token'
   };
 
   describe('Authentication', () => {
@@ -359,14 +361,14 @@ describe('Admin API', () => {
 
     it('should reject requests with invalid token', async () => {
       const response = await SELF.fetch('http://localhost/api/admin/members', {
-        headers: { 'Authorization': 'Bearer invalid-token' }
+        headers: { Authorization: 'Bearer invalid-token' }
       });
       expect(response.status).toBe(401);
     });
 
     it('should reject requests with malformed Authorization header', async () => {
       const response = await SELF.fetch('http://localhost/api/admin/members', {
-        headers: { 'Authorization': 'InvalidFormat' }
+        headers: { Authorization: 'InvalidFormat' }
       });
       expect(response.status).toBe(401);
     });
@@ -382,10 +384,14 @@ describe('Admin API', () => {
   describe('GET /api/admin/members', () => {
     it('should return all members with stats', async () => {
       // Add test member
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Test', 'User', 'test@example.com', 'L3 Informatique', 'active', '@test').run();
+      `
+      )
+        .bind('Test', 'User', 'test@example.com', 'L3 Informatique', 'active', '@test')
+        .run();
 
       const response = await SELF.fetch('http://localhost/api/admin/members', {
         headers: adminHeaders
@@ -413,9 +419,15 @@ describe('Admin API', () => {
   describe('GET /api/admin/stats', () => {
     it('should return comprehensive admin stats', async () => {
       // Add members with different statuses and tracks
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('L3', 'Active', 'l3active@test.com', 'L3 Informatique', 'active', '@l3')`);
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('M1', 'Active', 'm1active@test.com', 'M1 Informatique', 'active', '@m1')`);
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Pending', 'User', 'pending@test.com', 'L3 Informatique', 'pending', '@pending')`);
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('L3', 'Active', 'l3active@test.com', 'L3 Informatique', 'active', '@l3')`
+      );
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('M1', 'Active', 'm1active@test.com', 'M1 Informatique', 'active', '@m1')`
+      );
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Pending', 'User', 'pending@test.com', 'L3 Informatique', 'pending', '@pending')`
+      );
 
       const response = await SELF.fetch('http://localhost/api/admin/stats', {
         headers: adminHeaders
@@ -434,10 +446,14 @@ describe('Admin API', () => {
   describe('PUT /api/admin/members/:id', () => {
     it('should update member status', async () => {
       // Add pending member
-      const result = await env.DB.prepare(`
+      const result = await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Test', 'User', 'test@example.com', 'L3 Informatique', 'pending', '@test').run();
+      `
+      )
+        .bind('Test', 'User', 'test@example.com', 'L3 Informatique', 'pending', '@test')
+        .run();
 
       const memberId = result.meta.last_row_id;
 
@@ -450,19 +466,21 @@ describe('Admin API', () => {
       expect(response.status).toBe(200);
 
       // Verify update
-      const member = await env.DB.prepare(
-        'SELECT * FROM members WHERE id = ?'
-      ).bind(memberId).first();
+      const member = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(memberId).first();
 
       expect(member.status).toBe('active');
       expect(member.approved_at).toBeDefined();
     });
 
     it('should set expires_at when approving member', async () => {
-      const result = await env.DB.prepare(`
+      const result = await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Expiry', 'Test', 'expiry@example.com', 'L3 Informatique', 'pending', '@expiry').run();
+      `
+      )
+        .bind('Expiry', 'Test', 'expiry@example.com', 'L3 Informatique', 'pending', '@expiry')
+        .run();
 
       const memberId = result.meta.last_row_id;
 
@@ -472,19 +490,21 @@ describe('Admin API', () => {
         body: JSON.stringify({ status: 'active' })
       });
 
-      const member = await env.DB.prepare(
-        'SELECT expires_at FROM members WHERE id = ?'
-      ).bind(memberId).first();
+      const member = await env.DB.prepare('SELECT expires_at FROM members WHERE id = ?').bind(memberId).first();
 
       expect(member.expires_at).toBeDefined();
       expect(member.expires_at).toContain('-08-31');
     });
 
     it('should update member details', async () => {
-      const result = await env.DB.prepare(`
+      const result = await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Test', 'User', 'test@example.com', 'L3 Informatique', 'pending', '@test').run();
+      `
+      )
+        .bind('Test', 'User', 'test@example.com', 'L3 Informatique', 'pending', '@test')
+        .run();
 
       const memberId = result.meta.last_row_id;
 
@@ -500,9 +520,7 @@ describe('Admin API', () => {
 
       expect(response.status).toBe(200);
 
-      const member = await env.DB.prepare(
-        'SELECT * FROM members WHERE id = ?'
-      ).bind(memberId).first();
+      const member = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(memberId).first();
 
       expect(member.first_name).toBe('Updated');
       expect(member.last_name).toBe('Name');
@@ -520,10 +538,14 @@ describe('Admin API', () => {
     });
 
     it('should record status change in history', async () => {
-      const result = await env.DB.prepare(`
+      const result = await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('History', 'Test', 'history@example.com', 'L3 Informatique', 'pending', '@history').run();
+      `
+      )
+        .bind('History', 'Test', 'history@example.com', 'L3 Informatique', 'pending', '@history')
+        .run();
 
       const memberId = result.meta.last_row_id;
 
@@ -535,7 +557,9 @@ describe('Admin API', () => {
 
       const history = await env.DB.prepare(
         'SELECT * FROM membership_history WHERE member_id = ? ORDER BY id DESC LIMIT 1'
-      ).bind(memberId).first();
+      )
+        .bind(memberId)
+        .first();
 
       expect(history.old_status).toBe('pending');
       expect(history.new_status).toBe('active');
@@ -545,10 +569,14 @@ describe('Admin API', () => {
 
   describe('DELETE /api/admin/members/:id', () => {
     it('should delete member', async () => {
-      const result = await env.DB.prepare(`
+      const result = await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Test', 'User', 'delete@example.com', 'L3 Informatique', 'pending', '@test').run();
+      `
+      )
+        .bind('Test', 'User', 'delete@example.com', 'L3 Informatique', 'pending', '@test')
+        .run();
 
       const memberId = result.meta.last_row_id;
 
@@ -559,9 +587,7 @@ describe('Admin API', () => {
 
       expect(response.status).toBe(200);
 
-      const member = await env.DB.prepare(
-        'SELECT * FROM members WHERE id = ?'
-      ).bind(memberId).first();
+      const member = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(memberId).first();
 
       expect(member).toBeNull();
     });
@@ -579,12 +605,18 @@ describe('Admin API', () => {
   describe('POST /api/admin/members/batch', () => {
     it('should batch update member statuses', async () => {
       // Add multiple pending members
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('User1', 'Test', 'user1@example.com', 'L3 Informatique', 'pending', '@user1')`);
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('User2', 'Test', 'user2@example.com', 'L3 Informatique', 'pending', '@user2')`);
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('User3', 'Test', 'user3@example.com', 'L3 Informatique', 'pending', '@user3')`);
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('User1', 'Test', 'user1@example.com', 'L3 Informatique', 'pending', '@user1')`
+      );
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('User2', 'Test', 'user2@example.com', 'L3 Informatique', 'pending', '@user2')`
+      );
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('User3', 'Test', 'user3@example.com', 'L3 Informatique', 'pending', '@user3')`
+      );
 
       const members = await env.DB.prepare('SELECT id FROM members').all();
-      const memberIds = members.results.map(m => m.id);
+      const memberIds = members.results.map((m) => m.id);
 
       const response = await SELF.fetch('http://localhost/api/admin/members/batch', {
         method: 'POST',
@@ -599,9 +631,7 @@ describe('Admin API', () => {
       expect(response.status).toBe(200);
 
       // Verify all are active
-      const updated = await env.DB.prepare(
-        "SELECT COUNT(*) as count FROM members WHERE status = 'active'"
-      ).first();
+      const updated = await env.DB.prepare("SELECT COUNT(*) as count FROM members WHERE status = 'active'").first();
 
       expect(updated.count).toBe(3);
     });
@@ -620,10 +650,12 @@ describe('Admin API', () => {
     });
 
     it('should reject invalid status', async () => {
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Test', 'User', 'test@example.com', 'L3 Informatique', 'pending', '@test')`);
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Test', 'User', 'test@example.com', 'L3 Informatique', 'pending', '@test')`
+      );
 
       const members = await env.DB.prepare('SELECT id FROM members').all();
-      const memberIds = members.results.map(m => m.id);
+      const memberIds = members.results.map((m) => m.id);
 
       const response = await SELF.fetch('http://localhost/api/admin/members/batch', {
         method: 'POST',
@@ -638,11 +670,15 @@ describe('Admin API', () => {
     });
 
     it('should batch reject members', async () => {
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Reject1', 'Test', 'reject1@example.com', 'L3 Informatique', 'pending', '@r1')`);
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Reject2', 'Test', 'reject2@example.com', 'L3 Informatique', 'pending', '@r2')`);
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Reject1', 'Test', 'reject1@example.com', 'L3 Informatique', 'pending', '@r1')`
+      );
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Reject2', 'Test', 'reject2@example.com', 'L3 Informatique', 'pending', '@r2')`
+      );
 
       const members = await env.DB.prepare('SELECT id FROM members').all();
-      const memberIds = members.results.map(m => m.id);
+      const memberIds = members.results.map((m) => m.id);
 
       const response = await SELF.fetch('http://localhost/api/admin/members/batch', {
         method: 'POST',
@@ -656,9 +692,7 @@ describe('Admin API', () => {
 
       expect(response.status).toBe(200);
 
-      const rejected = await env.DB.prepare(
-        "SELECT COUNT(*) as count FROM members WHERE status = 'rejected'"
-      ).first();
+      const rejected = await env.DB.prepare("SELECT COUNT(*) as count FROM members WHERE status = 'rejected'").first();
 
       expect(rejected.count).toBe(2);
     });
@@ -666,10 +700,14 @@ describe('Admin API', () => {
 
   describe('GET /api/admin/export', () => {
     it('should export members as CSV', async () => {
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Test', 'User', 'export@example.com', 'L3 Informatique', 'active', '@test').run();
+      `
+      )
+        .bind('Test', 'User', 'export@example.com', 'L3 Informatique', 'active', '@test')
+        .run();
 
       const response = await SELF.fetch('http://localhost/api/admin/export', {
         headers: adminHeaders
@@ -684,8 +722,12 @@ describe('Admin API', () => {
     });
 
     it('should filter export by status', async () => {
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Active', 'User', 'active@example.com', 'L3 Informatique', 'active', '@active')`);
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Pending', 'User', 'pending@example.com', 'L3 Informatique', 'pending', '@pending')`);
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Active', 'User', 'active@example.com', 'L3 Informatique', 'active', '@active')`
+      );
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Pending', 'User', 'pending@example.com', 'L3 Informatique', 'pending', '@pending')`
+      );
 
       const response = await SELF.fetch('http://localhost/api/admin/export?status=active', {
         headers: adminHeaders
@@ -697,7 +739,9 @@ describe('Admin API', () => {
     });
 
     it('should have proper CSV headers', async () => {
-      await env.DB.exec(`INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Test', 'User', 'test@example.com', 'L3 Informatique', 'active', '@test')`);
+      await env.DB.exec(
+        `INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord) VALUES ('Test', 'User', 'test@example.com', 'L3 Informatique', 'active', '@test')`
+      );
 
       const response = await SELF.fetch('http://localhost/api/admin/export', {
         headers: adminHeaders
@@ -711,10 +755,14 @@ describe('Admin API', () => {
     });
 
     it('should escape special characters in CSV', async () => {
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, notes, discord)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).bind('Test', 'User"Quote', 'special@example.com', 'L3 Informatique', 'active', 'Note with "quotes"', '@test').run();
+      `
+      )
+        .bind('Test', 'User"Quote', 'special@example.com', 'L3 Informatique', 'active', 'Note with "quotes"', '@test')
+        .run();
 
       const response = await SELF.fetch('http://localhost/api/admin/export', {
         headers: adminHeaders
@@ -750,9 +798,7 @@ describe('Admin API', () => {
       expect(response.status).toBe(200);
 
       // Verify update
-      const settings = await env.DB.prepare(
-        "SELECT value FROM settings WHERE key = 'current_year'"
-      ).first();
+      const settings = await env.DB.prepare("SELECT value FROM settings WHERE key = 'current_year'").first();
 
       expect(settings.value).toBe('2025-2026');
     });
@@ -810,10 +856,14 @@ describe('Admin API', () => {
   describe('Bureau Status Management', () => {
     it('should allow setting bureau status', async () => {
       // Create member
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Bureau', 'Member', 'bureau@test.com', 'L3 Informatique', 'active', '@bureau').run();
+      `
+      )
+        .bind('Bureau', 'Member', 'bureau@test.com', 'L3 Informatique', 'active', '@bureau')
+        .run();
 
       const member = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('bureau@test.com').first();
 
@@ -831,16 +881,24 @@ describe('Admin API', () => {
 
     it('should reject duplicate bureau position', async () => {
       // Create president
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Current', 'President', 'president@test.com', 'L3 Informatique', 'president', '@president').run();
+      `
+      )
+        .bind('Current', 'President', 'president@test.com', 'L3 Informatique', 'president', '@president')
+        .run();
 
       // Create another member
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Other', 'Member', 'other@test.com', 'L3 Informatique', 'active', '@other').run();
+      `
+      )
+        .bind('Other', 'Member', 'other@test.com', 'L3 Informatique', 'active', '@other')
+        .run();
 
       const other = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('other@test.com').first();
 
@@ -857,10 +915,14 @@ describe('Admin API', () => {
 
     it('should allow changing own bureau position', async () => {
       // Create president
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Current', 'President', 'president@test.com', 'L3 Informatique', 'president', '@president').run();
+      `
+      )
+        .bind('Current', 'President', 'president@test.com', 'L3 Informatique', 'president', '@president')
+        .run();
 
       const member = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('president@test.com').first();
 
@@ -875,10 +937,14 @@ describe('Admin API', () => {
     });
 
     it('should reject invalid status', async () => {
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Test', 'User', 'test@test.com', 'L3 Informatique', 'active', '@test').run();
+      `
+      )
+        .bind('Test', 'User', 'test@test.com', 'L3 Informatique', 'active', '@test')
+        .run();
 
       const member = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('test@test.com').first();
 
@@ -895,16 +961,24 @@ describe('Admin API', () => {
 
     it('should allow multiple honorary presidents', async () => {
       // Create first honorary president
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('First', 'Honorary', 'honorary1@test.com', 'L3 Informatique', 'honorary_president', '@honorary1').run();
+      `
+      )
+        .bind('First', 'Honorary', 'honorary1@test.com', 'L3 Informatique', 'honorary_president', '@honorary1')
+        .run();
 
       // Create another member
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Second', 'Honorary', 'honorary2@test.com', 'L3 Informatique', 'active', '@honorary2').run();
+      `
+      )
+        .bind('Second', 'Honorary', 'honorary2@test.com', 'L3 Informatique', 'active', '@honorary2')
+        .run();
 
       const other = await env.DB.prepare('SELECT id FROM members WHERE email = ?').bind('honorary2@test.com').first();
 
@@ -961,10 +1035,14 @@ Jane,Smith,jane@test.com,0687654321,M1 Informatique,Membre actif`;
 
     it('should update existing members on import', async () => {
       // Create existing member
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Old', 'Name', 'john@test.com', 'L1 Informatique', 'pending', '@old').run();
+      `
+      )
+        .bind('Old', 'Name', 'john@test.com', 'L1 Informatique', 'pending', '@old')
+        .run();
 
       const csv = `Prénom,Nom,Email,Filière d'inscription,Statut
 John,Doe,john@test.com,L3 Informatique,Membre actif`;
@@ -989,10 +1067,14 @@ John,Doe,john@test.com,L3 Informatique,Membre actif`;
 
     it('should reject duplicate bureau positions in import', async () => {
       // Create existing president
-      await env.DB.prepare(`
+      await env.DB.prepare(
+        `
         INSERT INTO members (first_name, last_name, email, enrollment_track, status, discord)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).bind('Current', 'President', 'president@test.com', 'L3 Informatique', 'president', '@president').run();
+      `
+      )
+        .bind('Current', 'President', 'president@test.com', 'L3 Informatique', 'president', '@president')
+        .run();
 
       const csv = `Prénom,Nom,Email,Statut
 New,President,new@test.com,Président`;
@@ -1138,7 +1220,9 @@ Bob,Student,bob@test.com,87654321,M1 Informatique`;
       expect(data.stats.imported).toBe(2);
 
       // Verify student IDs were imported
-      const alice = await env.DB.prepare('SELECT student_id FROM members WHERE email = ?').bind('alice@test.com').first();
+      const alice = await env.DB.prepare('SELECT student_id FROM members WHERE email = ?')
+        .bind('alice@test.com')
+        .first();
       const bob = await env.DB.prepare('SELECT student_id FROM members WHERE email = ?').bind('bob@test.com').first();
 
       expect(alice.student_id).toBe('12345678');
@@ -1157,7 +1241,9 @@ Charlie,Student,charlie@test.com,11111111,L3 Informatique`;
 
       expect(response.status).toBe(200);
 
-      const charlie = await env.DB.prepare('SELECT student_id FROM members WHERE email = ?').bind('charlie@test.com').first();
+      const charlie = await env.DB.prepare('SELECT student_id FROM members WHERE email = ?')
+        .bind('charlie@test.com')
+        .first();
       expect(charlie.student_id).toBe('11111111');
     });
 
@@ -1178,9 +1264,15 @@ Charlie,Student,charlie@test.com,Doctorant en informatique`;
       expect(data.stats.imported).toBe(3);
 
       // Verify free-text cursus values were imported
-      const alice = await env.DB.prepare('SELECT enrollment_track FROM members WHERE email = ?').bind('alice@test.com').first();
-      const bob = await env.DB.prepare('SELECT enrollment_track FROM members WHERE email = ?').bind('bob@test.com').first();
-      const charlie = await env.DB.prepare('SELECT enrollment_track FROM members WHERE email = ?').bind('charlie@test.com').first();
+      const alice = await env.DB.prepare('SELECT enrollment_track FROM members WHERE email = ?')
+        .bind('alice@test.com')
+        .first();
+      const bob = await env.DB.prepare('SELECT enrollment_track FROM members WHERE email = ?')
+        .bind('bob@test.com')
+        .first();
+      const charlie = await env.DB.prepare('SELECT enrollment_track FROM members WHERE email = ?')
+        .bind('charlie@test.com')
+        .first();
 
       expect(alice.enrollment_track).toBe('L3 Informatique parcours IA');
       expect(bob.enrollment_track).toBe('Master 2 Data Science');

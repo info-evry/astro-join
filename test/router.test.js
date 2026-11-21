@@ -66,7 +66,10 @@ describe('Router', () => {
 
     it('should chain route registrations', () => {
       const router = new Router();
-      router.get('/a', () => {}).post('/b', () => {}).put('/c', () => {});
+      router
+        .get('/a', () => {})
+        .post('/b', () => {})
+        .put('/c', () => {});
       expect(router.routes).toHaveLength(3);
     });
   });

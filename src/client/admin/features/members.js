@@ -16,17 +16,28 @@ function getFiltered(members) {
 
   let filtered = members;
   if (statusFilter) {
-    filtered = statusFilter === 'bureau'
-      ? filtered.filter((m) => isBureauRole(m.status))
-      : filtered.filter((m) => m.status === statusFilter);
+    filtered =
+      statusFilter === 'bureau'
+        ? filtered.filter((m) => isBureauRole(m.status))
+        : filtered.filter((m) => m.status === statusFilter);
   }
   if (trackFilter) filtered = filtered.filter((m) => m.enrollment_track === trackFilter);
   if (searchQuery) {
     filtered = filtered.filter((m) => {
       const fields = [
-        m.first_name, m.last_name, m.email, m.student_id,
-        m.phone, m.telegram, m.discord, m.enrollment_track, m.notes
-      ].filter(Boolean).join(' ').toLowerCase();
+        m.first_name,
+        m.last_name,
+        m.email,
+        m.student_id,
+        m.phone,
+        m.telegram,
+        m.discord,
+        m.enrollment_track,
+        m.notes
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
       return fields.includes(searchQuery);
     });
   }
@@ -186,12 +197,16 @@ export function toggleMemberSelection(id, checked) {
 export function populateTrackFilter(members) {
   const filterTrack = $('filter-track');
   const tracks = [...new Set(members.map((m) => m.enrollment_track))].sort();
-  filterTrack.innerHTML = '<option value="">Tous les cursus</option>' +
+  filterTrack.innerHTML =
+    '<option value="">Tous les cursus</option>' +
     tracks.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 }
 
 export function initMembers(api, loadData) {
-  $('filter-search').addEventListener('input', debounce(() => renderMembers(state.members), 300));
+  $('filter-search').addEventListener(
+    'input',
+    debounce(() => renderMembers(state.members), 300)
+  );
   $('filter-status').addEventListener('change', () => renderMembers(state.members));
   $('filter-track').addEventListener('change', () => renderMembers(state.members));
   $('member-form').addEventListener('submit', (e) => handleMemberSubmit(e, api, loadData));

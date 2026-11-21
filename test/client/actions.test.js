@@ -21,8 +21,10 @@ vi.mock('../../src/client/admin/features/pending.js', () => ({
 }));
 
 const { buildActions } = await import('../../src/client/admin/actions.js');
-const { toggleSort, toggleSelectAll, toggleMemberSelection } = await import('../../src/client/admin/features/members.js');
-const { editMember, confirmDeleteMember, bulkApprove, bulkSetStatus, bulkDelete } = await import('../../src/client/admin/features/member-actions.js');
+const { toggleSort, toggleSelectAll, toggleMemberSelection } =
+  await import('../../src/client/admin/features/members.js');
+const { editMember, confirmDeleteMember, bulkApprove, bulkSetStatus, bulkDelete } =
+  await import('../../src/client/admin/features/member-actions.js');
 const { approveMember, rejectMember, approveAll } = await import('../../src/client/admin/features/pending.js');
 
 describe('buildActions', () => {

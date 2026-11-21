@@ -48,8 +48,21 @@ function readCsv(text, delimiter = ';') {
 }
 
 const HEADERS = [
-  'ID', 'Prénom', 'Nom', 'Email', 'Numéro étudiant', 'Numéro inscription', 'Cursus', 'Téléphone',
-  'Telegram', 'Discord', 'Statut', 'Notes', 'Date adhésion', 'Date approbation', 'Date expiration'
+  'ID',
+  'Prénom',
+  'Nom',
+  'Email',
+  'Numéro étudiant',
+  'Numéro inscription',
+  'Cursus',
+  'Téléphone',
+  'Telegram',
+  'Discord',
+  'Statut',
+  'Notes',
+  'Date adhésion',
+  'Date approbation',
+  'Date expiration'
 ];
 
 describe('GET /api/admin/export', () => {
@@ -70,8 +83,15 @@ describe('GET /api/admin/export', () => {
 
   it('separates cells with semicolons and quotes only the cells that need it', async () => {
     await insertMember({
-      first_name: 'Ada', last_name: 'Lovelace', email: 'ada@test.example', student_id: 'S1',
-      enrollment_number: 'EN-7', phone: '+33612345678', telegram: '@ada', discord: 'ada;1', status: 'active'
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      email: 'ada@test.example',
+      student_id: 'S1',
+      enrollment_number: 'EN-7',
+      phone: '+33612345678',
+      telegram: '@ada',
+      discord: 'ada;1',
+      status: 'active'
     });
 
     const lines = (await (await exportCsv()).text()).split('\r\n');
@@ -80,9 +100,17 @@ describe('GET /api/admin/export', () => {
     const row = readCsv(lines[1])[0];
     expect(row).toHaveLength(HEADERS.length);
     expect(row.slice(1, 11)).toEqual([
-      'Ada', 'Lovelace', 'ada@test.example', 'S1', 'EN-7', 'L3 Informatique',
+      'Ada',
+      'Lovelace',
+      'ada@test.example',
+      'S1',
+      'EN-7',
+      'L3 Informatique',
       // phone numbers are not apostrophe-prefixed, '@' handles are
-      '+33612345678', "'@ada", 'ada;1', 'active'
+      '+33612345678',
+      "'@ada",
+      'ada;1',
+      'active'
     ]);
     expect(lines[1]).toContain(';"ada;1";');
     expect(lines[1]).not.toContain('"Ada"');
@@ -99,7 +127,9 @@ describe('GET /api/admin/export', () => {
     const row = rows[1];
     expect(Number(row[0])).toBeGreaterThan(0);
     // student id, enrollment number, phone, telegram, discord, notes, approval date, expiry date
-    expect([row[4], row[5], row[7], row[8], row[9], row[11], row[13], row[14]]).toEqual(Array.from({ length: 8 }, () => ''));
+    expect([row[4], row[5], row[7], row[8], row[9], row[11], row[13], row[14]]).toEqual(
+      Array.from({ length: 8 }, () => '')
+    );
   });
 
   it('orders rows by last name then first name', async () => {
@@ -161,7 +191,9 @@ describe('GET /api/admin/export', () => {
 
   it('doubles embedded quotes and keeps embedded delimiters and newlines inside quotes', async () => {
     const id = await insertMember({
-      first_name: 'Say "hi"; please', last_name: 'Line1\nLine2', email: `${uid('q')}@test.example`
+      first_name: 'Say "hi"; please',
+      last_name: 'Line1\nLine2',
+      email: `${uid('q')}@test.example`
     });
 
     const rows = readCsv(await (await exportCsv()).text());
@@ -191,9 +223,15 @@ describe('GET /api/admin/export', () => {
     it('neutralises a classic payload in every text column, but keeps phone numbers intact', async () => {
       const payload = '=HYPERLINK("http://evil.example","x")';
       await insertMember({
-        first_name: payload, last_name: payload, email: `${uid('f')}@test.example`,
-        student_id: payload, enrollment_track: payload, phone: '+33612345678',
-        telegram: payload, discord: '@cmd', notes: payload
+        first_name: payload,
+        last_name: payload,
+        email: `${uid('f')}@test.example`,
+        student_id: payload,
+        enrollment_track: payload,
+        phone: '+33612345678',
+        telegram: payload,
+        discord: '@cmd',
+        notes: payload
       });
 
       const [, row] = readCsv(await (await exportCsv()).text());
@@ -268,7 +306,10 @@ describe('POST /api/admin/import - parsing', () => {
   it('reads quoted cells with embedded delimiters', async () => {
     const response = await importCsv('Prénom,Nom,Email,Cursus\nJean,"Dupont, Jr","jd@test.example","L3, parcours IA"');
     expect((await response.json()).stats.imported).toBe(1);
-    expect(await byEmail('jd@test.example')).toMatchObject({ last_name: 'Dupont, Jr', enrollment_track: 'L3, parcours IA' });
+    expect(await byEmail('jd@test.example')).toMatchObject({
+      last_name: 'Dupont, Jr',
+      enrollment_track: 'L3, parcours IA'
+    });
   });
 
   it('reads doubled quotes as literal quotes', async () => {
@@ -277,7 +318,9 @@ describe('POST /api/admin/import - parsing', () => {
   });
 
   it('reads newlines embedded in quoted cells as part of the cell', async () => {
-    const response = await importCsv('Prénom,Nom,Email\n"Jean\nPaul",Dupont,jp@test.example\nAnne,Martin,anne@test.example');
+    const response = await importCsv(
+      'Prénom,Nom,Email\n"Jean\nPaul",Dupont,jp@test.example\nAnne,Martin,anne@test.example'
+    );
     const data = await response.json();
     expect(data.stats).toMatchObject({ imported: 2, skipped: 0 });
     expect((await byEmail('jp@test.example')).first_name).toBe('Jean\nPaul');
@@ -311,7 +354,9 @@ describe('POST /api/admin/import - parsing', () => {
   });
 
   it('does not let a stray quote inside text swallow the following rows', async () => {
-    const response = await importCsv('Prénom,Nom,Email\nJean 5" ,Dupont,stray@test.example\nAnne,Martin,after@test.example');
+    const response = await importCsv(
+      'Prénom,Nom,Email\nJean 5" ,Dupont,stray@test.example\nAnne,Martin,after@test.example'
+    );
     expect((await response.json()).stats.imported).toBe(2);
     expect((await byEmail('stray@test.example')).first_name).toBe('Jean 5"');
   });
@@ -329,7 +374,7 @@ describe('POST /api/admin/import - parsing', () => {
   });
 
   it.each([
-    ['prénom', 'nom', 'email', 'téléphone', 'numéro étudiant', 'filière d\'inscription', 'statut'],
+    ['prénom', 'nom', 'email', 'téléphone', 'numéro étudiant', "filière d'inscription", 'statut'],
     ['prenom', 'lastname', 'mail', 'telephone', 'numero etudiant', 'filiere', 'status'],
     ['firstname', 'nom', 'email', 'phone', 'student_id', 'track', 'status'],
     ['prénom', 'nom', 'email', 'tel', 'n° étudiant', 'enrollment_track', 'statut'],
@@ -342,7 +387,10 @@ describe('POST /api/admin/import - parsing', () => {
 
     expect((await response.json()).stats.imported).toBe(1);
     expect(await byEmail(email)).toMatchObject({
-      phone: '0600', student_id: 'SID1', enrollment_track: 'Master Z', status: 'treasurer'
+      phone: '0600',
+      student_id: 'SID1',
+      enrollment_track: 'Master Z',
+      status: 'treasurer'
     });
   });
 
@@ -352,13 +400,27 @@ describe('POST /api/admin/import - parsing', () => {
   });
 
   it.each([
-    ['Membre actif', 'active'], ['actif', 'active'], ["Membre d'honneur", 'honor'], ['Honneur', 'honor'],
-    ['Secrétaire', 'secretary'], ['secretaire', 'secretary'], ['TRÉSORIER', 'treasurer'], ['tresorier', 'treasurer'],
-    ['Président', 'president'], ['president', 'president'], ["Président d'honneur", 'honorary_president'],
-    ["president d'honneur", 'honorary_president'], ['Vice-président', 'vice_president'],
-    ['vice president', 'vice_president'], ['Vice Président', 'vice_president'],
-    ['En attente', 'pending'], ['pending', 'pending'], ['Refusé', 'rejected'], ['refuse', 'rejected'],
-    ['Expiré', 'expired'], ['expire', 'expired']
+    ['Membre actif', 'active'],
+    ['actif', 'active'],
+    ["Membre d'honneur", 'honor'],
+    ['Honneur', 'honor'],
+    ['Secrétaire', 'secretary'],
+    ['secretaire', 'secretary'],
+    ['TRÉSORIER', 'treasurer'],
+    ['tresorier', 'treasurer'],
+    ['Président', 'president'],
+    ['president', 'president'],
+    ["Président d'honneur", 'honorary_president'],
+    ["president d'honneur", 'honorary_president'],
+    ['Vice-président', 'vice_president'],
+    ['vice president', 'vice_president'],
+    ['Vice Président', 'vice_president'],
+    ['En attente', 'pending'],
+    ['pending', 'pending'],
+    ['Refusé', 'rejected'],
+    ['refuse', 'rejected'],
+    ['Expiré', 'expired'],
+    ['expire', 'expired']
   ])('maps the status label %j to %s', async (label, status) => {
     const email = `${uid('st')}@test.example`;
     await importCsv(`Prénom,Nom,Email,Statut\nS,T,${email},${label}`);
@@ -366,8 +428,16 @@ describe('POST /api/admin/import - parsing', () => {
   });
 
   it.each([
-    'pending', 'active', 'honor', 'secretary', 'treasurer', 'president',
-    'honorary_president', 'vice_president', 'rejected', 'expired'
+    'pending',
+    'active',
+    'honor',
+    'secretary',
+    'treasurer',
+    'president',
+    'honorary_president',
+    'vice_president',
+    'rejected',
+    'expired'
   ])('accepts the internal status value %s written by the export', async (status) => {
     const email = `${uid('int')}@test.example`;
     await importCsv(`Prénom,Nom,Email,Statut\nIn,Ternal,${email},${status}`);
@@ -375,7 +445,9 @@ describe('POST /api/admin/import - parsing', () => {
   });
 
   it('gives imported members approval dates, except pending and rejected ones', async () => {
-    await importCsv('Prénom,Nom,Email,Statut\nA,A,a-act@test.example,actif\nP,P,p-pen@test.example,en attente\nR,R,r-rej@test.example,refusé');
+    await importCsv(
+      'Prénom,Nom,Email,Statut\nA,A,a-act@test.example,actif\nP,P,p-pen@test.example,en attente\nR,R,r-rej@test.example,refusé'
+    );
     const active = await byEmail('a-act@test.example');
     expect(active.approved_at).not.toBeNull();
     expect(active.expires_at).toMatch(/^\d{4}-08-31$/);
@@ -393,7 +465,9 @@ describe('POST /api/admin/import - parsing', () => {
   it('stores blank optional cells as NULL', async () => {
     await importCsv('Prénom,Nom,Email,Téléphone,Numéro,Cursus\nBl,Ank,blank@test.example,,  ,');
     expect(await byEmail('blank@test.example')).toMatchObject({
-      phone: null, student_id: null, enrollment_track: 'Autre'
+      phone: null,
+      student_id: null,
+      enrollment_track: 'Autre'
     });
   });
 
@@ -423,7 +497,8 @@ describe('POST /api/admin/import - validation and reporting', () => {
   });
 
   it('reports the record number of each bad row and still imports the good ones', async () => {
-    const csv = 'Prénom,Nom,Email\nOk,One,ok1@test.example\nBad,Two,bad\nOk,Three,ok3@test.example\n,Four,four@test.example';
+    const csv =
+      'Prénom,Nom,Email\nOk,One,ok1@test.example\nBad,Two,bad\nOk,Three,ok3@test.example\n,Four,four@test.example';
     const data = await (await importCsv(csv)).json();
     expect(data.stats).toEqual({ imported: 2, updated: 0, skipped: 2, total: 4 });
     expect(data.errors).toEqual([
@@ -447,35 +522,56 @@ describe('POST /api/admin/import - validation and reporting', () => {
 
   it('updates an existing member found by email, ignoring email case', async () => {
     const id = await insertMember({
-      email: 'exist@test.example', first_name: 'Old', last_name: 'Name', status: 'pending',
-      phone: '0100', student_id: 'KEEP', enrollment_track: 'L1 Informatique'
+      email: 'exist@test.example',
+      first_name: 'Old',
+      last_name: 'Name',
+      status: 'pending',
+      phone: '0100',
+      student_id: 'KEEP',
+      enrollment_track: 'L1 Informatique'
     });
 
-    const data = await (await importCsv("Prénom,Nom,Email,Cursus,Statut\nNew,Person,EXIST@test.example,M2 Informatique,actif")).json();
+    const data = await (
+      await importCsv('Prénom,Nom,Email,Cursus,Statut\nNew,Person,EXIST@test.example,M2 Informatique,actif')
+    ).json();
 
     expect(data.stats).toMatchObject({ imported: 0, updated: 1, skipped: 0 });
     expect(await getMember(id)).toMatchObject({
-      first_name: 'New', last_name: 'Person', status: 'active',
-      enrollment_track: 'M2 Informatique', phone: '0100', student_id: 'KEEP'
+      first_name: 'New',
+      last_name: 'Person',
+      status: 'active',
+      enrollment_track: 'M2 Informatique',
+      phone: '0100',
+      student_id: 'KEEP'
     });
   });
 
   it('does not wipe stored values when the CSV cells or columns are blank or missing', async () => {
     const id = await insertMember({
-      email: 'keep@test.example', status: 'secretary', phone: '0100', student_id: 'KEEP',
-      enrollment_number: 'EN1', enrollment_track: 'M1 Informatique'
+      email: 'keep@test.example',
+      status: 'secretary',
+      phone: '0100',
+      student_id: 'KEEP',
+      enrollment_number: 'EN1',
+      enrollment_track: 'M1 Informatique'
     });
 
     await importCsv('Prénom,Nom,Email,Téléphone,Numéro\nKept,Data,keep@test.example,,');
 
     expect(await getMember(id)).toMatchObject({
-      first_name: 'Kept', phone: '0100', student_id: 'KEEP', enrollment_number: 'EN1',
-      enrollment_track: 'M1 Informatique', status: 'secretary'
+      first_name: 'Kept',
+      phone: '0100',
+      student_id: 'KEEP',
+      enrollment_number: 'EN1',
+      enrollment_track: 'M1 Informatique',
+      status: 'secretary'
     });
   });
 
   it('treats a repeated email inside one file as an insert followed by an update', async () => {
-    const data = await (await importCsv('Prénom,Nom,Email\nFirst,Pass,twice@test.example\nSecond,Pass,twice@test.example')).json();
+    const data = await (
+      await importCsv('Prénom,Nom,Email\nFirst,Pass,twice@test.example\nSecond,Pass,twice@test.example')
+    ).json();
     expect(data.stats).toMatchObject({ imported: 1, updated: 1, skipped: 0 });
     expect((await byEmail('twice@test.example')).first_name).toBe('Second');
     expect((await env.DB.prepare('SELECT COUNT(*) AS n FROM members').first()).n).toBe(1);
@@ -483,8 +579,10 @@ describe('POST /api/admin/import - validation and reporting', () => {
 
   describe('bureau roles', () => {
     it.each([
-      ['president', 'Président'], ['vice_president', 'Vice-président'],
-      ['secretary', 'Secrétaire'], ['treasurer', 'Trésorier']
+      ['president', 'Président'],
+      ['vice_president', 'Vice-président'],
+      ['secretary', 'Secrétaire'],
+      ['treasurer', 'Trésorier']
     ])('refuses a second %s already held in the database', async (status, label) => {
       await insertMember({ status, first_name: 'Current', last_name: 'Holder', email: 'holder@test.example' });
 
@@ -496,8 +594,10 @@ describe('POST /api/admin/import - validation and reporting', () => {
     });
 
     it.each([
-      ['president', 'Président'], ['vice_president', 'Vice-président'],
-      ['secretary', 'Secrétaire'], ['treasurer', 'Trésorier']
+      ['president', 'Président'],
+      ['vice_president', 'Vice-président'],
+      ['secretary', 'Secrétaire'],
+      ['treasurer', 'Trésorier']
     ])('refuses two %s rows in one file', async (status, label) => {
       const csv = `Prénom,Nom,Email,Statut\nA,One,a-b@test.example,${label}\nB,Two,b-b@test.example,${label}`;
       const data = await (await importCsv(csv)).json();
@@ -524,18 +624,77 @@ describe('POST /api/admin/import - validation and reporting', () => {
 describe('export -> import round trip', () => {
   /** The fields an import restores (dates are re-derived from the status, ids are new). */
   const RESTORED = [
-    'first_name', 'last_name', 'email', 'student_id', 'enrollment_number', 'enrollment_track',
-    'phone', 'telegram', 'discord', 'status', 'notes'
+    'first_name',
+    'last_name',
+    'email',
+    'student_id',
+    'enrollment_number',
+    'enrollment_track',
+    'phone',
+    'telegram',
+    'discord',
+    'status',
+    'notes'
   ];
   const restored = (row) => Object.fromEntries(RESTORED.map((column) => [column, row[column]]));
 
   const people = [
-    { first_name: 'Ada', last_name: 'Lovelace', email: 'ada-rt@test.example', student_id: 'S1', enrollment_number: '20240001', phone: '+33612345678', enrollment_track: 'M1 Informatique', status: 'active' },
-    { first_name: 'Grace', last_name: 'Hopper, "Amazing"', email: 'grace-rt@test.example', student_id: null, phone: '06 12 34 56 78', enrollment_track: 'Doctorat, Info', status: 'treasurer', notes: 'Line one\nLine two; with "quotes"' },
-    { first_name: 'Zoë', last_name: 'Éluard-Müller', email: 'zoe-rt@test.example', telegram: '@zoe', discord: 'zoe#1234', enrollment_track: 'L3 Informatique', status: 'honor' },
-    { first_name: '=cmd', last_name: '-dash', email: 'inj-rt@test.example', phone: '(01) 23.45', notes: '=HYPERLINK("http://evil.example","x")', enrollment_track: 'L1 Informatique', status: 'pending' },
-    { first_name: "'=quoted", last_name: "'+plain", email: 'apos-rt@test.example', notes: "'@mention and |pipe", enrollment_track: 'Autre', status: 'rejected' },
-    { first_name: 'Linus', last_name: 'Torvalds', email: 'linus-rt@test.example', student_id: 'S3', phone: '0103', enrollment_track: 'L3 Informatique', status: 'expired', notes: '+33 notes' }
+    {
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      email: 'ada-rt@test.example',
+      student_id: 'S1',
+      enrollment_number: '20240001',
+      phone: '+33612345678',
+      enrollment_track: 'M1 Informatique',
+      status: 'active'
+    },
+    {
+      first_name: 'Grace',
+      last_name: 'Hopper, "Amazing"',
+      email: 'grace-rt@test.example',
+      student_id: null,
+      phone: '06 12 34 56 78',
+      enrollment_track: 'Doctorat, Info',
+      status: 'treasurer',
+      notes: 'Line one\nLine two; with "quotes"'
+    },
+    {
+      first_name: 'Zoë',
+      last_name: 'Éluard-Müller',
+      email: 'zoe-rt@test.example',
+      telegram: '@zoe',
+      discord: 'zoe#1234',
+      enrollment_track: 'L3 Informatique',
+      status: 'honor'
+    },
+    {
+      first_name: '=cmd',
+      last_name: '-dash',
+      email: 'inj-rt@test.example',
+      phone: '(01) 23.45',
+      notes: '=HYPERLINK("http://evil.example","x")',
+      enrollment_track: 'L1 Informatique',
+      status: 'pending'
+    },
+    {
+      first_name: "'=quoted",
+      last_name: "'+plain",
+      email: 'apos-rt@test.example',
+      notes: "'@mention and |pipe",
+      enrollment_track: 'Autre',
+      status: 'rejected'
+    },
+    {
+      first_name: 'Linus',
+      last_name: 'Torvalds',
+      email: 'linus-rt@test.example',
+      student_id: 'S3',
+      phone: '0103',
+      enrollment_track: 'L3 Informatique',
+      status: 'expired',
+      notes: '+33 notes'
+    }
   ];
 
   it('re-imports an export into an empty database with equivalent members', async () => {
@@ -558,15 +717,33 @@ describe('export -> import round trip', () => {
     const before = await env.DB.prepare('SELECT * FROM members ORDER BY email').all();
 
     // The format the exporter used before: commas, every cell quoted, apostrophe before = + - @ | and phones
-    const rows = before.results.map((member) => [
-      member.id, member.first_name, member.last_name, member.email, member.student_id || '', member.enrollment_track,
-      member.phone || '', member.telegram || '', member.discord || '', member.status, member.created_at, '', ''
-    ].map((value) => {
-      let text = String(value).replaceAll('"', '""');
-      if (/^[=+\-@\t\r|;]/.test(text)) text = `'${text}`;
-      return `"${text}"`;
-    }).join(','));
-    const legacy = ['ID,Prénom,Nom,Email,Numéro étudiant,Cursus,Téléphone,Telegram,Discord,Statut,Date adhésion,Date approbation,Date expiration', ...rows].join('\n');
+    const rows = before.results.map((member) =>
+      [
+        member.id,
+        member.first_name,
+        member.last_name,
+        member.email,
+        member.student_id || '',
+        member.enrollment_track,
+        member.phone || '',
+        member.telegram || '',
+        member.discord || '',
+        member.status,
+        member.created_at,
+        '',
+        ''
+      ]
+        .map((value) => {
+          let text = String(value).replaceAll('"', '""');
+          if (/^[=+\-@\t\r|;]/.test(text)) text = `'${text}`;
+          return `"${text}"`;
+        })
+        .join(',')
+    );
+    const legacy = [
+      'ID,Prénom,Nom,Email,Numéro étudiant,Cursus,Téléphone,Telegram,Discord,Statut,Date adhésion,Date approbation,Date expiration',
+      ...rows
+    ].join('\n');
 
     await resetMembers();
     const data = await (await importCsv(legacy)).json();
@@ -598,16 +775,22 @@ describe('POST /api/admin/import - formats and fields', () => {
     ['tab', '\t']
   ])('reads %s separated files with the same result', async (_label, d) => {
     const email = `${uid('sep')}@test.example`;
-    const csv = ['Prénom', 'Nom', 'Email', 'Téléphone', 'Notes'].join(d) + '\n' +
+    const csv =
+      ['Prénom', 'Nom', 'Email', 'Téléphone', 'Notes'].join(d) +
+      '\n' +
       ['Sep', 'Arator', email, '+33612345678', 'a note'].join(d);
     expect((await (await importCsv(csv)).json()).stats.imported).toBe(1);
     expect(await byEmail(email)).toMatchObject({ phone: '+33612345678', notes: 'a note' });
   });
 
   it('removes the injection guard from cells (apostrophe before = + - @ |)', async () => {
-    await importCsv('Prénom;Nom;Email;Telegram;Discord;Notes\n\'=A;\'-B;guard@test.example;\'@tg;\'|dc;\'+n');
+    await importCsv("Prénom;Nom;Email;Telegram;Discord;Notes\n'=A;'-B;guard@test.example;'@tg;'|dc;'+n");
     expect(await byEmail('guard@test.example')).toMatchObject({
-      first_name: '=A', last_name: '-B', telegram: '@tg', discord: '|dc', notes: '+n'
+      first_name: '=A',
+      last_name: '-B',
+      telegram: '@tg',
+      discord: '|dc',
+      notes: '+n'
     });
   });
 
@@ -633,9 +816,11 @@ describe('POST /api/admin/import - formats and fields', () => {
   it('reports an unknown status label as a row error instead of making the member active', async () => {
     const id = await insertMember({ email: 'known@test.example', status: 'pending' });
 
-    const data = await (await importCsv(
-      'Prénom,Nom,Email,Statut\nNew,Person,new-unk@test.example,Chef suprême\nKnown,Person,known@test.example,???\nOk,Person,ok-unk@test.example,actif'
-    )).json();
+    const data = await (
+      await importCsv(
+        'Prénom,Nom,Email,Statut\nNew,Person,new-unk@test.example,Chef suprême\nKnown,Person,known@test.example,???\nOk,Person,ok-unk@test.example,actif'
+      )
+    ).json();
 
     expect(data.stats).toEqual({ imported: 1, updated: 0, skipped: 2, total: 3 });
     expect(data.errors).toEqual(['Ligne 2 : statut inconnu « Chef suprême »', 'Ligne 3 : statut inconnu « ??? »']);
@@ -672,9 +857,11 @@ describe('POST /api/admin/import - formats and fields', () => {
       "CREATE TRIGGER IF NOT EXISTS fail_boom BEFORE INSERT ON members WHEN NEW.email = 'boom@test.example' BEGIN SELECT RAISE(ABORT, 'secret internal detail'); END"
     ).run();
     try {
-      const data = await (await importCsv(
-        'Prénom,Nom,Email\nA,One,a-boom@test.example\nBoom,Two,boom@test.example\nC,Three,c-boom@test.example'
-      )).json();
+      const data = await (
+        await importCsv(
+          'Prénom,Nom,Email\nA,One,a-boom@test.example\nBoom,Two,boom@test.example\nC,Three,c-boom@test.example'
+        )
+      ).json();
 
       expect(data.stats).toEqual({ imported: 2, updated: 0, skipped: 1, total: 3 });
       expect(data.errors).toEqual(['Ligne 3 : enregistrement impossible']);
@@ -695,12 +882,16 @@ describe('POST /api/admin/import - approval dates and history', () => {
   };
 
   it('approves and logs a created active member, and logs a created pending one', async () => {
-    await importCsv('Prénom,Nom,Email,Statut\nAc,Tive,hist-act@test.example,actif\nPe,Nding,hist-pen@test.example,en attente');
+    await importCsv(
+      'Prénom,Nom,Email,Statut\nAc,Tive,hist-act@test.example,actif\nPe,Nding,hist-pen@test.example,en attente'
+    );
 
     const active = await byEmail('hist-act@test.example');
     expect(active.approved_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     expect(active.expires_at).toBe(expiry(new Date()));
-    expect(await getHistory(active.id)).toMatchObject([{ old_status: null, new_status: 'active', reason: 'Imported from CSV' }]);
+    expect(await getHistory(active.id)).toMatchObject([
+      { old_status: null, new_status: 'active', reason: 'Imported from CSV' }
+    ]);
 
     const pending = await byEmail('hist-pen@test.example');
     expect([pending.approved_at, pending.expires_at]).toEqual([null, null]);
@@ -708,7 +899,9 @@ describe('POST /api/admin/import - approval dates and history', () => {
   });
 
   it('gives bureau and honor members approval dates, but not expired ones', async () => {
-    await importCsv('Prénom,Nom,Email,Statut\nB,B,hd-bureau@test.example,Président\nH,H,hd-honor@test.example,honneur\nE,E,hd-exp@test.example,expiré');
+    await importCsv(
+      'Prénom,Nom,Email,Statut\nB,B,hd-bureau@test.example,Président\nH,H,hd-honor@test.example,honneur\nE,E,hd-exp@test.example,expiré'
+    );
     expect((await byEmail('hd-bureau@test.example')).expires_at).toBe(expiry(new Date()));
     expect((await byEmail('hd-honor@test.example')).expires_at).toBe(expiry(new Date()));
     expect((await byEmail('hd-exp@test.example')).expires_at).toBeNull();
@@ -723,26 +916,40 @@ describe('POST /api/admin/import - approval dates and history', () => {
     expect(row.status).toBe('active');
     expect(row.approved_at).not.toBeNull();
     expect(row.expires_at).toBe(expiry(new Date()));
-    expect(await getHistory(id)).toMatchObject([{ old_status: 'pending', new_status: 'active', reason: 'Imported from CSV' }]);
+    expect(await getHistory(id)).toMatchObject([
+      { old_status: 'pending', new_status: 'active', reason: 'Imported from CSV' }
+    ]);
   });
 
   it('keeps the dates of a member moving between active statuses and logs only real changes', async () => {
     const id = await insertMember({
-      email: 'hist-keep@test.example', status: 'active', approved_at: '2025-01-01 00:00:00', expires_at: '2025-08-31'
+      email: 'hist-keep@test.example',
+      status: 'active',
+      approved_at: '2025-01-01 00:00:00',
+      expires_at: '2025-08-31'
     });
 
     await importCsv('Prénom,Nom,Email,Statut\nKe,Ep,hist-keep@test.example,honneur');
-    expect(await getMember(id)).toMatchObject({ status: 'honor', approved_at: '2025-01-01 00:00:00', expires_at: '2025-08-31' });
+    expect(await getMember(id)).toMatchObject({
+      status: 'honor',
+      approved_at: '2025-01-01 00:00:00',
+      expires_at: '2025-08-31'
+    });
 
     await importCsv('Prénom,Nom,Email,Statut\nKe,Ep,hist-keep@test.example,honneur\nKe,Ep,hist-keep@test.example');
     expect(await getHistory(id)).toMatchObject([{ old_status: 'active', new_status: 'honor' }]);
   });
 
   it('tracks the status through repeated rows of one file', async () => {
-    await importCsv('Prénom,Nom,Email,Statut\nA,B,hist-twice@test.example,en attente\nA,B,hist-twice@test.example,actif');
+    await importCsv(
+      'Prénom,Nom,Email,Statut\nA,B,hist-twice@test.example,en attente\nA,B,hist-twice@test.example,actif'
+    );
     const row = await byEmail('hist-twice@test.example');
     expect(row.status).toBe('active');
     expect(row.expires_at).toBe(expiry(new Date()));
-    expect((await getHistory(row.id)).map((h) => [h.old_status, h.new_status])).toEqual([[null, 'pending'], ['pending', 'active']]);
+    expect((await getHistory(row.id)).map((h) => [h.old_status, h.new_status])).toEqual([
+      [null, 'pending'],
+      ['pending', 'active']
+    ]);
   });
 });

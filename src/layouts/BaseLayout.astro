@@ -6,9 +6,7 @@ import Footer from '../components/Footer.astro';
 import MobileNav from '@info-evry/astro-design/components/MobileNav.astro';
 import associationInfo from '@info-evry/knowledge/association';
 
-const mobileNavItems = [
-  { href: '#inscription', label: 'Adhésion', icon: 'person.badge.plus' },
-];
+const mobileNavItems = [{ href: '#inscription', label: 'Adhésion', icon: 'person.badge.plus' }];
 
 interface Props {
   title: string;
@@ -22,7 +20,7 @@ interface Props {
 const {
   title,
   description = "Rejoignez l'Association Info Evry",
-  image = "og.jpg",
+  image = 'og.jpg',
   showHeader = true,
   showFooter = true,
   noindex = false
@@ -34,62 +32,62 @@ const siteUrl = rawUrl ? rawUrl.replace(/\/?$/, '/') : '/';
 const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
 ---
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-  <Head
-    title={title}
-    description={description}
-    image={image}
-    noindex={noindex}
-    canonicalUrl={canonicalUrl}
-    siteName={associationInfo.name}
-    author={associationInfo.fullName}
-  />
-</head>
-<body>
-  {showHeader && <Header />}
+  <head>
+    <Head
+      title={title}
+      description={description}
+      image={image}
+      noindex={noindex}
+      canonicalUrl={canonicalUrl}
+      siteName={associationInfo.name}
+      author={associationInfo.fullName}
+    />
+  </head>
+  <body>
+    {showHeader && <Header />}
 
-  <slot />
+    <slot />
 
-  {showFooter && <Footer />}
+    {showFooter && <Footer />}
 
-  <MobileNav items={mobileNavItems} />
-</body>
+    <MobileNav items={mobileNavItems} />
+  </body>
 </html>
 
 <style is:global>
-/* ===========================================
-   Join-Specific Styles
-   Styles that extend or override the design system
-   =========================================== */
+  /* ===========================================
+     Join-Specific Styles
+     Styles that extend or override the design system
+     =========================================== */
 
-:root {
-  --container-max-form: 960px;
-}
-
-/* Container - narrower for form. Kept: .hero-content.container on the
-   join landing page (src/pages/index.astro) relies on this narrower
-   width; the design system's default .container is 1200px. */
-.container {
-  max-width: var(--container-max-form);
-  padding: var(--space-8) var(--space-4);
-}
-
-/* Header container should use design system defaults */
-.header-container.container {
-  padding: 0 var(--container-padding);
-  max-width: var(--container-max);
-}
-
-/* Footer container should be wider */
-.footer-container.container {
-  max-width: var(--container-max);
-}
-
-@media (max-width: 600px) {
-  .container {
-    padding: var(--space-6) var(--space-4);
+  :root {
+    --container-max-form: 960px;
   }
-}
+
+  /* Container - narrower for form. Kept: .hero-content.container on the
+     join landing page (src/pages/index.astro) relies on this narrower
+     width; the design system's default .container is 1200px. */
+  .container {
+    max-width: var(--container-max-form);
+    padding: var(--space-8) var(--space-4);
+  }
+
+  /* Header container should use design system defaults */
+  .header-container.container {
+    padding: 0 var(--container-padding);
+    max-width: var(--container-max);
+  }
+
+  /* Footer container should be wider */
+  .footer-container.container {
+    max-width: var(--container-max);
+  }
+
+  @media (max-width: 600px) {
+    .container {
+      padding: var(--space-6) var(--space-4);
+    }
+  }
 </style>

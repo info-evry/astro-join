@@ -17,7 +17,7 @@ describe('CSV Import - Header Parsing', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({ csv: csvData })
     });
@@ -34,7 +34,7 @@ describe('CSV Import - Header Parsing', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({ csv: csvData })
     });
@@ -51,7 +51,7 @@ describe('CSV Import - Header Parsing', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({ csv: csvData })
     });
@@ -70,7 +70,7 @@ describe('CSV Import - Row Validation', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({ csv: csvData })
     });
@@ -78,7 +78,7 @@ describe('CSV Import - Row Validation', () => {
     const data = await response.json();
     expect(data.stats.imported).toBe(1);
     expect(data.stats.skipped).toBe(1);
-    expect(data.errors.some(e => e.includes('email invalide'))).toBe(true);
+    expect(data.errors.some((e) => e.includes('email invalide'))).toBe(true);
   });
 
   it('should skip rows with missing required fields', async () => {
@@ -88,7 +88,7 @@ describe('CSV Import - Row Validation', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({ csv: csvData })
     });
@@ -104,7 +104,9 @@ describe('Member Update - Field Mapping', () => {
   beforeAll(async () => {
     const result = await env.DB.prepare(
       "INSERT INTO members (first_name, last_name, email, status, enrollment_track) VALUES (?, ?, ?, ?, 'Autre')"
-    ).bind('Update', 'Test', 'update-test@example.com', 'pending').run();
+    )
+      .bind('Update', 'Test', 'update-test@example.com', 'pending')
+      .run();
     memberId = result.meta.last_row_id;
   });
 
@@ -113,7 +115,7 @@ describe('Member Update - Field Mapping', () => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({
         firstName: 'Updated',
@@ -135,7 +137,7 @@ describe('Member Update - Field Mapping', () => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({
         phone: '0612345678',
@@ -159,13 +161,15 @@ describe('Member Update - Status Changes', () => {
   it('should reject invalid status', async () => {
     const result = await env.DB.prepare(
       "INSERT INTO members (first_name, last_name, email, status, enrollment_track) VALUES (?, ?, ?, ?, 'Autre')"
-    ).bind('Status', 'Test', 'status-test@example.com', 'pending').run();
+    )
+      .bind('Status', 'Test', 'status-test@example.com', 'pending')
+      .run();
 
     const response = await SELF.fetch(`http://localhost/api/admin/members/${result.meta.last_row_id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({
         status: 'invalid_status'
@@ -180,13 +184,15 @@ describe('Member Update - Status Changes', () => {
   it('should set approval dates when activating member', async () => {
     const result = await env.DB.prepare(
       "INSERT INTO members (first_name, last_name, email, status, enrollment_track) VALUES (?, ?, ?, ?, 'Autre')"
-    ).bind('Activate', 'Test', 'activate-test@example.com', 'pending').run();
+    )
+      .bind('Activate', 'Test', 'activate-test@example.com', 'pending')
+      .run();
 
     const response = await SELF.fetch(`http://localhost/api/admin/members/${result.meta.last_row_id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({
         status: 'active'
@@ -195,8 +201,7 @@ describe('Member Update - Status Changes', () => {
 
     expect(response.status).toBe(200);
 
-    const member = await env.DB.prepare('SELECT * FROM members WHERE id = ?')
-      .bind(result.meta.last_row_id).first();
+    const member = await env.DB.prepare('SELECT * FROM members WHERE id = ?').bind(result.meta.last_row_id).first();
     expect(member.status).toBe('active');
     expect(member.approved_at).not.toBeNull();
     expect(member.expires_at).not.toBeNull();
@@ -205,13 +210,15 @@ describe('Member Update - Status Changes', () => {
   it('should log status changes in history', async () => {
     const result = await env.DB.prepare(
       "INSERT INTO members (first_name, last_name, email, status, enrollment_track) VALUES (?, ?, ?, ?, 'Autre')"
-    ).bind('History', 'Test', 'history-test@example.com', 'pending').run();
+    )
+      .bind('History', 'Test', 'history-test@example.com', 'pending')
+      .run();
 
     await SELF.fetch(`http://localhost/api/admin/members/${result.meta.last_row_id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-admin-token'
+        Authorization: 'Bearer test-admin-token'
       },
       body: JSON.stringify({
         status: 'active',
@@ -219,9 +226,9 @@ describe('Member Update - Status Changes', () => {
       })
     });
 
-    const history = await env.DB.prepare(
-      'SELECT * FROM membership_history WHERE member_id = ?'
-    ).bind(result.meta.last_row_id).first();
+    const history = await env.DB.prepare('SELECT * FROM membership_history WHERE member_id = ?')
+      .bind(result.meta.last_row_id)
+      .first();
 
     expect(history).not.toBeNull();
     expect(history.old_status).toBe('pending');

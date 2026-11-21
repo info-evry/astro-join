@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  mountAdminDom, byId, makeMember, settle, currentToast, isHidden, click, inlineHandlerAttributes, XSS_ATTRIBUTE, XSS_APOSTROPHE
+  mountAdminDom,
+  byId,
+  makeMember,
+  settle,
+  currentToast,
+  isHidden,
+  click,
+  inlineHandlerAttributes,
+  XSS_ATTRIBUTE,
+  XSS_APOSTROPHE
 } from './helpers.js';
 
 let pending;
@@ -30,7 +39,9 @@ const confirm = async () => {
 describe('renderPendingApplications', () => {
   it('lists only pending members, newest data as given', () => {
     pending.renderPendingApplications([
-      makeMember({ id: 1, status: 'pending' }), makeMember({ id: 2, status: 'active' }), makeMember({ id: 3, status: 'pending' })
+      makeMember({ id: 1, status: 'pending' }),
+      makeMember({ id: 2, status: 'active' }),
+      makeMember({ id: 3, status: 'pending' })
     ]);
     expect([...container().querySelectorAll('tbody tr')].map((row) => row.dataset.id)).toEqual(['1', '3']);
   });
@@ -69,10 +80,18 @@ describe('renderPendingApplications', () => {
     ['apostrophes', XSS_APOSTROPHE],
     ['a script tag', '<script>alert(1)</script>']
   ])('does not create elements or handlers from %s', (_label, payload) => {
-    pending.renderPendingApplications([makeMember({
-      status: 'pending', first_name: payload, last_name: payload, email: `${payload}@x.fr`,
-      enrollment_track: payload, phone: payload, telegram: payload, discord: payload
-    })]);
+    pending.renderPendingApplications([
+      makeMember({
+        status: 'pending',
+        first_name: payload,
+        last_name: payload,
+        email: `${payload}@x.fr`,
+        enrollment_track: payload,
+        phone: payload,
+        telegram: payload,
+        discord: payload
+      })
+    ]);
 
     expect(container().querySelector('img, script')).toBeNull();
     expect(inlineHandlerAttributes(container())).toEqual([]);
@@ -143,7 +162,9 @@ describe('rejectMember', () => {
 describe('approveAll', () => {
   beforeEach(() => {
     state.members = [
-      makeMember({ id: 1, status: 'pending' }), makeMember({ id: 2, status: 'active' }), makeMember({ id: 3, status: 'pending' })
+      makeMember({ id: 1, status: 'pending' }),
+      makeMember({ id: 2, status: 'active' }),
+      makeMember({ id: 3, status: 'pending' })
     ];
   });
 
@@ -169,7 +190,11 @@ describe('approveAll', () => {
     const [endpoint, options] = api.mock.calls[0];
     expect(endpoint).toBe('/admin/members/batch');
     expect(options.method).toBe('POST');
-    expect(JSON.parse(options.body)).toEqual({ memberIds: [1, 3], status: 'active', reason: 'Batch approved by admin' });
+    expect(JSON.parse(options.body)).toEqual({
+      memberIds: [1, 3],
+      status: 'active',
+      reason: 'Batch approved by admin'
+    });
     expect(currentToast().textContent).toBe('2 membre(s) approuvé(s)');
     expect(isHidden('confirm-modal')).toBe(true);
     expect(loadData).toHaveBeenCalledTimes(1);

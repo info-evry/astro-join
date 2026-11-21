@@ -18,7 +18,9 @@ export function renderBureau(members) {
 
   container.innerHTML = `
     <div class="bureau-grid">
-      ${bureau.map((m) => `
+      ${bureau
+        .map(
+          (m) => `
         <div class="bureau-card">
           <div class="bureau-role">${escapeHtml(statusLabel(m.status))}</div>
           <div class="bureau-name">${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</div>
@@ -27,7 +29,9 @@ export function renderBureau(members) {
             <button class="icon-btn" data-action="edit-member" data-member-id="${m.id}" title="Modifier" aria-label="Modifier le membre">􀈊</button>
           </div>
         </div>
-      `).join('')}
+      `
+        )
+        .join('')}
     </div>
   `;
 }

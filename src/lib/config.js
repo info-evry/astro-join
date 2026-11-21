@@ -33,7 +33,9 @@ export function parseSettingRows(rows) {
 
 /** @param {unknown} value */
 function isTrackList(value) {
-  return Array.isArray(value) && value.length > 0 && value.every((track) => typeof track === 'string' && track.trim() !== '');
+  return (
+    Array.isArray(value) && value.length > 0 && value.every((track) => typeof track === 'string' && track.trim() !== '')
+  );
 }
 
 /**
@@ -48,7 +50,11 @@ export async function loadMembershipConfig(db) {
   return {
     membershipOpen: settings.membership_open !== false && settings.membership_open !== 'false',
     currentYear:
-      typeof settings.current_year === 'string' && settings.current_year ? settings.current_year : DEFAULT_ACADEMIC_YEAR,
-    enrollmentTracks: isTrackList(settings.enrollment_tracks) ? settings.enrollment_tracks : [...DEFAULT_ENROLLMENT_TRACKS]
+      typeof settings.current_year === 'string' && settings.current_year
+        ? settings.current_year
+        : DEFAULT_ACADEMIC_YEAR,
+    enrollmentTracks: isTrackList(settings.enrollment_tracks)
+      ? settings.enrollment_tracks
+      : [...DEFAULT_ENROLLMENT_TRACKS]
   };
 }

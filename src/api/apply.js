@@ -58,7 +58,7 @@ export async function apply(request, env) {
       : await insertApplication(env.DB, fields);
 
     return success(
-      'Votre demande d\'adhésion a bien été enregistrée. Vous recevrez un email de confirmation une fois votre demande validée.',
+      "Votre demande d'adhésion a bien été enregistrée. Vous recevrez un email de confirmation une fois votre demande validée.",
       { memberId }
     );
   } catch (error_) {
@@ -82,10 +82,14 @@ function readFields(body) {
 
 /** History row of the application of the member with this email. */
 function applicationHistory(db, email, oldStatus, reason) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     INSERT INTO membership_history (member_id, old_status, new_status, reason)
     SELECT id, ?, 'pending', ? FROM members WHERE email = ?
-  `).bind(oldStatus, reason, email);
+  `
+    )
+    .bind(oldStatus, reason, email);
 }
 
 /**
@@ -94,12 +98,16 @@ function applicationHistory(db, email, oldStatus, reason) {
  */
 async function insertApplication(database, fields) {
   const results = await database.batch([
-    database.prepare(`
+    database
+      .prepare(
+        `
       INSERT INTO members (
         first_name, last_name, email, student_id, enrollment_track,
         phone, telegram, discord, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-    `).bind(...fields),
+    `
+      )
+      .bind(...fields),
     applicationHistory(database, fields[2], null, 'Application submitted')
   ]);
   return results[0].meta.last_row_id;
@@ -113,14 +121,18 @@ async function insertApplication(database, fields) {
 async function reopenApplication(database, existing, fields) {
   const [firstName, lastName, email, studentId, enrollmentTrack, phone, telegram, discord] = fields;
   await database.batch([
-    database.prepare(`
+    database
+      .prepare(
+        `
       UPDATE members SET
         first_name = ?, last_name = ?, student_id = ?, enrollment_track = ?,
         phone = ?, telegram = ?, discord = ?, status = 'pending',
         approved_at = NULL, expires_at = NULL,
         created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).bind(firstName, lastName, studentId, enrollmentTrack, phone, telegram, discord, existing.id),
+    `
+      )
+      .bind(firstName, lastName, studentId, enrollmentTrack, phone, telegram, discord, existing.id),
     applicationHistory(database, email, existing.status, 'Application re-submitted')
   ]);
   return existing.id;
@@ -154,11 +166,11 @@ function validateIdentityFields(data, errors) {
   }
 
   if (!data.email.trim()) {
-    errors.push('L\'email est requis');
+    errors.push("L'email est requis");
   } else if (tooLong(data.email, LIMITS.email)) {
     errors.push(`L'email est trop long (${LIMITS.email} caractères maximum)`);
   } else if (!isValidEmail(data.email)) {
-    errors.push('L\'email est invalide');
+    errors.push("L'email est invalide");
   }
 }
 

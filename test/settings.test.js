@@ -85,15 +85,12 @@ describe('PUT /api/admin/settings - value validation', () => {
     expect((await readRow('membership_open')).value).toBe(String(value));
   });
 
-  it.each([['yes'], ['TRUE'], [''], [1], [0], [null], [[]], [{}]])(
-    'rejects membership_open=%j',
-    async (value) => {
-      const response = await putSettings({ membership_open: value });
-      expect(response.status).toBe(400);
-      expect((await response.json()).error).toContain('membership_open');
-      expect((await readRow('membership_open')).value).toBe('true');
-    }
-  );
+  it.each([['yes'], ['TRUE'], [''], [1], [0], [null], [[]], [{}]])('rejects membership_open=%j', async (value) => {
+    const response = await putSettings({ membership_open: value });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain('membership_open');
+    expect((await readRow('membership_open')).value).toBe('true');
+  });
 
   it.each(['2024-2025', '1999-2000', '2099-2100'])('accepts current_year=%s', async (value) => {
     const response = await putSettings({ current_year: value });

@@ -5,8 +5,17 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
 import {
-  BASE, setupSchema, resetMembers, insertMember, getMember, getHistory,
-  applyFetch, adminFetch, validApplication, putSetting, uid
+  BASE,
+  setupSchema,
+  resetMembers,
+  insertMember,
+  getMember,
+  getHistory,
+  applyFetch,
+  adminFetch,
+  validApplication,
+  putSetting,
+  uid
 } from './helpers.js';
 
 beforeAll(setupSchema);
@@ -143,11 +152,13 @@ describe('length caps', () => {
   });
 
   it('reports every violated cap in one response', async () => {
-    const response = await applyFetch(validApplication({
-      firstName: 'a'.repeat(101),
-      lastName: 'a'.repeat(101),
-      studentId: 'a'.repeat(33)
-    }));
+    const response = await applyFetch(
+      validApplication({
+        firstName: 'a'.repeat(101),
+        lastName: 'a'.repeat(101),
+        studentId: 'a'.repeat(33)
+      })
+    );
     expect(response.status).toBe(400);
     const { error } = await response.json();
     expect(error).toContain('prénom');
@@ -285,19 +296,35 @@ describe('email normalisation and duplicates', () => {
   it.each(['rejected', 'expired'])('lets a %s member re-apply by reopening the same row', async (status) => {
     const email = `${uid('r')}@test.example`;
     const id = await insertMember({
-      email, status, approved_at: '2020-01-01', expires_at: '2021-08-31', notes: 'kept note'
+      email,
+      status,
+      approved_at: '2020-01-01',
+      expires_at: '2021-08-31',
+      notes: 'kept note'
     });
 
-    const response = await applyFetch(validApplication({
-      email, firstName: 'Back', lastName: 'Again', discord: '@back', phone: '0600000000'
-    }));
+    const response = await applyFetch(
+      validApplication({
+        email,
+        firstName: 'Back',
+        lastName: 'Again',
+        discord: '@back',
+        phone: '0600000000'
+      })
+    );
     expect(response.status).toBe(200);
     expect((await response.json()).memberId).toBe(id);
 
     const row = await getMember(id);
     expect(row).toMatchObject({
-      status: 'pending', first_name: 'Back', last_name: 'Again',
-      discord: '@back', phone: '0600000000', approved_at: null, expires_at: null, notes: 'kept note'
+      status: 'pending',
+      first_name: 'Back',
+      last_name: 'Again',
+      discord: '@back',
+      phone: '0600000000',
+      approved_at: null,
+      expires_at: null,
+      notes: 'kept note'
     });
     expect(await countByEmail(email)).toBe(1);
 
@@ -352,9 +379,15 @@ describe('hostile strings', () => {
 
   it.each(PAYLOADS)('stores %j verbatim and returns it JSON-safe', async (payload) => {
     const email = `${uid('xss')}@test.example`;
-    const response = await applyFetch(validApplication({
-      email, firstName: payload, lastName: payload, telegram: payload, studentId: payload.slice(0, 32)
-    }));
+    const response = await applyFetch(
+      validApplication({
+        email,
+        firstName: payload,
+        lastName: payload,
+        telegram: payload,
+        studentId: payload.slice(0, 32)
+      })
+    );
     expect(response.status).toBe(200);
 
     const row = await byEmail(email);
@@ -421,6 +454,8 @@ describe('email handling shared with the admin edit', () => {
   it('records the application and its history row in one batch', async () => {
     const payload = validApplication();
     const { memberId } = await (await applyFetch(payload)).json();
-    expect(await getHistory(memberId)).toMatchObject([{ old_status: null, new_status: 'pending', reason: 'Application submitted' }]);
+    expect(await getHistory(memberId)).toMatchObject([
+      { old_status: null, new_status: 'pending', reason: 'Application submitted' }
+    ]);
   });
 });

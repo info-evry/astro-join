@@ -1,8 +1,15 @@
 /* global localStorage, KeyboardEvent, Event */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  mountAdminDom, byId, makeMember, jsonResponse, settle, currentToast, isHidden,
-  isolateDocumentListeners, click
+  mountAdminDom,
+  byId,
+  makeMember,
+  jsonResponse,
+  settle,
+  currentToast,
+  isHidden,
+  isolateDocumentListeners,
+  click
 } from './helpers.js';
 
 const TOKEN_KEY = 'join_admin_token';
@@ -106,7 +113,8 @@ describe('start-up', () => {
 
     expectAdminScreen();
     expect(server.calls.map((call) => `${call.method} ${call.url}`)).toEqual([
-      'GET /api/admin/members', 'GET /api/admin/settings'
+      'GET /api/admin/members',
+      'GET /api/admin/settings'
     ]);
     expect(server.calls.every((call) => call.authorization === 'Bearer good-token')).toBe(true);
     expect(localStorage.getItem(TOKEN_KEY)).toBe('good-token');
@@ -347,7 +355,8 @@ describe('delegated actions after login', () => {
     await settle();
 
     expect(server.calls.map((call) => `${call.method} ${call.url}`)).toEqual([
-      'PUT /api/admin/members/1', 'GET /api/admin/members'
+      'PUT /api/admin/members/1',
+      'GET /api/admin/members'
     ]);
     expect(JSON.parse(server.calls[0].body)).toEqual({ status: 'active', reason: 'Approved by admin' });
     expect(byId('pending-container').textContent).toContain('Aucune demande en attente');

@@ -4,9 +4,7 @@
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
-import {
-  BASE, setupSchema, resetMembers, insertMember, getMember, getHistory, adminFetch, uid
-} from './helpers.js';
+import { BASE, setupSchema, resetMembers, insertMember, getMember, getHistory, adminFetch, uid } from './helpers.js';
 
 beforeAll(setupSchema);
 beforeEach(resetMembers);
@@ -52,10 +50,25 @@ describe('GET /api/admin/members', () => {
   it('returns every column needed by the dashboard', async () => {
     await insertMember({ notes: 'n', phone: '1', telegram: '@t', student_id: 'S1', enrollment_number: 'E1' });
     const { members } = await (await adminFetch('/api/admin/members')).json();
-    expect(Object.keys(members[0])).toEqual(expect.arrayContaining([
-      'id', 'first_name', 'last_name', 'email', 'student_id', 'enrollment_number', 'enrollment_track',
-      'phone', 'telegram', 'discord', 'status', 'notes', 'created_at', 'approved_at', 'expires_at'
-    ]));
+    expect(Object.keys(members[0])).toEqual(
+      expect.arrayContaining([
+        'id',
+        'first_name',
+        'last_name',
+        'email',
+        'student_id',
+        'enrollment_number',
+        'enrollment_track',
+        'phone',
+        'telegram',
+        'discord',
+        'status',
+        'notes',
+        'created_at',
+        'approved_at',
+        'expires_at'
+      ])
+    );
   });
 });
 
@@ -88,7 +101,11 @@ describe('GET /api/admin/stats', () => {
     const { bureau } = await (await adminFetch('/api/admin/stats')).json();
 
     expect(bureau.map((m) => m.status)).toEqual([
-      'president', 'vice_president', 'secretary', 'treasurer', 'honorary_president'
+      'president',
+      'vice_president',
+      'secretary',
+      'treasurer',
+      'honorary_president'
     ]);
     expect(bureau[0].statusLabel).toBe('Président');
     expect(bureau[4].statusLabel).toBe("Président d'honneur");
@@ -110,8 +127,16 @@ describe('GET /api/admin/stats', () => {
   it('publishes the full status vocabulary for the UI', async () => {
     const data = await (await adminFetch('/api/admin/stats')).json();
     expect(data.validStatuses).toEqual([
-      'pending', 'active', 'honor', 'secretary', 'treasurer', 'president',
-      'honorary_president', 'vice_president', 'rejected', 'expired'
+      'pending',
+      'active',
+      'honor',
+      'secretary',
+      'treasurer',
+      'president',
+      'honorary_president',
+      'vice_president',
+      'rejected',
+      'expired'
     ]);
     expect(Object.keys(data.statusLabels).sort()).toEqual([...data.validStatuses].sort());
   });
@@ -130,8 +155,12 @@ describe('PUT /api/admin/members/:id - editing fields', () => {
     const id = await insertMember({ phone: '0102', telegram: '@old', notes: 'old' });
 
     const response = await put(id, {
-      firstName: '  Zoé ', lastName: ' Durand  ', email: `  ${uid('Z')}@Test.Example `.toUpperCase(),
-      phone: '   ', telegram: '', notes: ''
+      firstName: '  Zoé ',
+      lastName: ' Durand  ',
+      email: `  ${uid('Z')}@Test.Example `.toUpperCase(),
+      phone: '   ',
+      telegram: '',
+      notes: ''
     });
 
     expect(response.status).toBe(200);
@@ -155,11 +184,19 @@ describe('PUT /api/admin/members/:id - editing fields', () => {
   it('updates studentId, track, phone, telegram and discord', async () => {
     const id = await insertMember();
     const response = await put(id, {
-      studentId: 'S99', enrollmentTrack: 'M2 Informatique', phone: '0600', telegram: '@tg', discord: '@dc'
+      studentId: 'S99',
+      enrollmentTrack: 'M2 Informatique',
+      phone: '0600',
+      telegram: '@tg',
+      discord: '@dc'
     });
     expect(response.status).toBe(200);
     expect(await getMember(id)).toMatchObject({
-      student_id: 'S99', enrollment_track: 'M2 Informatique', phone: '0600', telegram: '@tg', discord: '@dc'
+      student_id: 'S99',
+      enrollment_track: 'M2 Informatique',
+      phone: '0600',
+      telegram: '@tg',
+      discord: '@dc'
     });
   });
 
@@ -216,13 +253,25 @@ describe('PUT /api/admin/members/:id - editing fields', () => {
   });
 
   it.each([
-    ['firstName', 5], ['firstName', null], ['firstName', ''], ['firstName', '   '],
-    ['lastName', ['x']], ['lastName', ''],
-    ['email', 12], ['email', null], ['email', ''], ['email', 'not-an-email'],
-    ['enrollmentTrack', 3], ['enrollmentTrack', null],
-    ['studentId', 7], ['studentId', { a: 1 }],
-    ['phone', true], ['telegram', []], ['discord', 1.5],
-    ['enrollmentNumber', 9], ['notes', { a: 1 }]
+    ['firstName', 5],
+    ['firstName', null],
+    ['firstName', ''],
+    ['firstName', '   '],
+    ['lastName', ['x']],
+    ['lastName', ''],
+    ['email', 12],
+    ['email', null],
+    ['email', ''],
+    ['email', 'not-an-email'],
+    ['enrollmentTrack', 3],
+    ['enrollmentTrack', null],
+    ['studentId', 7],
+    ['studentId', { a: 1 }],
+    ['phone', true],
+    ['telegram', []],
+    ['discord', 1.5],
+    ['enrollmentNumber', 9],
+    ['notes', { a: 1 }]
   ])('answers 400 and changes nothing for %s = %j', async (field, value) => {
     const id = await insertMember({ first_name: 'Stable' });
     const before = await getMember(id);
@@ -258,7 +307,10 @@ describe('PUT /api/admin/members/:id - editing fields', () => {
     'answers 400 invalid_id for the malformed id %j without touching real members',
     async (rawId) => {
       const real = await insertMember({ first_name: 'Safe' });
-      const response = await adminFetch(`/api/admin/members/${rawId}`, { method: 'PUT', body: { firstName: 'Hacked' } });
+      const response = await adminFetch(`/api/admin/members/${rawId}`, {
+        method: 'PUT',
+        body: { firstName: 'Hacked' }
+      });
       expect(response.status).toBe(400);
       expect((await response.json()).code).toBe('invalid_id');
       expect((await getMember(real)).first_name).toBe('Safe');
@@ -320,7 +372,9 @@ describe('PUT /api/admin/members/:id - status transitions', () => {
     await put(id, { status: 'honor' });
 
     expect(await getMember(id)).toMatchObject({
-      status: 'honor', approved_at: '2025-01-01 00:00:00', expires_at: '2025-08-31'
+      status: 'honor',
+      approved_at: '2025-01-01 00:00:00',
+      expires_at: '2025-08-31'
     });
   });
 
@@ -347,7 +401,9 @@ describe('PUT /api/admin/members/:id - status transitions', () => {
     await put(id, { status: 'expired' });
     await put(id, { status: 'active' });
     expect((await getHistory(id)).map((h) => [h.old_status, h.new_status])).toEqual([
-      ['pending', 'active'], ['active', 'expired'], ['expired', 'active']
+      ['pending', 'active'],
+      ['active', 'expired'],
+      ['expired', 'active']
     ]);
   });
 
@@ -436,7 +492,11 @@ describe('PUT /api/admin/members/:id - bureau roles', () => {
   });
 
   it('moves a member between roles and logs old and new role', async () => {
-    const id = await insertMember({ status: 'secretary', approved_at: '2025-01-01 00:00:00', expires_at: '2025-08-31' });
+    const id = await insertMember({
+      status: 'secretary',
+      approved_at: '2025-01-01 00:00:00',
+      expires_at: '2025-08-31'
+    });
 
     expect((await put(id, { status: 'treasurer' })).status).toBe(200);
 
@@ -456,8 +516,13 @@ describe('PUT /api/admin/members/:id - bureau roles', () => {
     const id = await insertMember({ status: 'pending' });
 
     const response = await put(id, {
-      firstName: 'Promoted', lastName: 'Member', email: `${uid('prom')}@test.example`,
-      studentId: '', enrollmentTrack: 'L3 Informatique', status: 'secretary', notes: ''
+      firstName: 'Promoted',
+      lastName: 'Member',
+      email: `${uid('prom')}@test.example`,
+      studentId: '',
+      enrollmentTrack: 'L3 Informatique',
+      status: 'secretary',
+      notes: ''
     });
 
     expect(response.status).toBe(200);
@@ -688,7 +753,16 @@ const SQL_TIMESTAMP = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
 describe('active members are counted the same way everywhere', () => {
   it('counts active, honor and every bureau role in /api/stats, the admin list and the admin stats', async () => {
-    for (const status of ['active', 'honor', 'president', 'honorary_president', 'vice_president', 'pending', 'rejected', 'expired']) {
+    for (const status of [
+      'active',
+      'honor',
+      'president',
+      'honorary_president',
+      'vice_president',
+      'pending',
+      'rejected',
+      'expired'
+    ]) {
       await insertMember({ status });
     }
 
@@ -729,8 +803,14 @@ describe('PUT /api/admin/members/:id - validation and atomicity', () => {
   });
 
   it.each([
-    ['firstName', 101], ['lastName', 101], ['email', 250], ['studentId', 33], ['phone', 31],
-    ['telegram', 65], ['discord', 65], ['enrollmentNumber', 33]
+    ['firstName', 101],
+    ['lastName', 101],
+    ['email', 250],
+    ['studentId', 33],
+    ['phone', 31],
+    ['telegram', 65],
+    ['discord', 65],
+    ['enrollmentNumber', 33]
   ])('caps %s at the shared limit', async (field, length) => {
     const id = await insertMember({ first_name: 'Stable' });
     const value = field === 'email' ? `${'x'.repeat(length)}@test.example` : 'x'.repeat(length);
@@ -795,21 +875,37 @@ describe('PUT /api/admin/members/:id - validation and atomicity', () => {
 
 describe('POST /api/admin/members/batch - dates and history', () => {
   it('does not reset the approval of members who are already active', async () => {
-    const already = await insertMember({ status: 'active', approved_at: '2024-01-01 00:00:00', expires_at: '2024-08-31' });
+    const already = await insertMember({
+      status: 'active',
+      approved_at: '2024-01-01 00:00:00',
+      expires_at: '2024-08-31'
+    });
     const honor = await insertMember({ status: 'honor', approved_at: '2023-01-01 00:00:00', expires_at: '2023-08-31' });
     const pending = await insertMember({ status: 'pending' });
 
     expect((await batch({ memberIds: [already, honor, pending], status: 'active' })).status).toBe(200);
 
-    expect(await getMember(already)).toMatchObject({ status: 'active', approved_at: '2024-01-01 00:00:00', expires_at: '2024-08-31' });
-    expect(await getMember(honor)).toMatchObject({ status: 'active', approved_at: '2023-01-01 00:00:00', expires_at: '2023-08-31' });
+    expect(await getMember(already)).toMatchObject({
+      status: 'active',
+      approved_at: '2024-01-01 00:00:00',
+      expires_at: '2024-08-31'
+    });
+    expect(await getMember(honor)).toMatchObject({
+      status: 'active',
+      approved_at: '2023-01-01 00:00:00',
+      expires_at: '2023-08-31'
+    });
     const fresh = await getMember(pending);
     expect(fresh.approved_at).toMatch(SQL_TIMESTAMP);
     expect(fresh.expires_at).toBe(expectedExpiry());
   });
 
   it('reapproves expired and rejected members', async () => {
-    const expired = await insertMember({ status: 'expired', approved_at: '2020-01-01 00:00:00', expires_at: '2020-08-31' });
+    const expired = await insertMember({
+      status: 'expired',
+      approved_at: '2020-01-01 00:00:00',
+      expires_at: '2020-08-31'
+    });
     await batch({ memberIds: [expired], status: 'active' });
     expect((await getMember(expired)).expires_at).toBe(expectedExpiry());
   });

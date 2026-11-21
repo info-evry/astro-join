@@ -35,12 +35,32 @@ describe.each([
   ['GET /api/admin/stats', () => adminFetch('/api/admin/stats'), 'members'],
   ['GET /api/admin/export', () => adminFetch('/api/admin/export'), 'members'],
   ['GET /api/admin/settings', () => adminFetch('/api/admin/settings'), 'settings'],
-  ['PUT /api/admin/settings', () => adminFetch('/api/admin/settings', { method: 'PUT', body: { current_year: '2030-2031' } }), 'settings'],
-  ['PUT /api/admin/members/:id', () => adminFetch('/api/admin/members/1', { method: 'PUT', body: { notes: 'x' } }), 'members'],
+  [
+    'PUT /api/admin/settings',
+    () => adminFetch('/api/admin/settings', { method: 'PUT', body: { current_year: '2030-2031' } }),
+    'settings'
+  ],
+  [
+    'PUT /api/admin/members/:id',
+    () => adminFetch('/api/admin/members/1', { method: 'PUT', body: { notes: 'x' } }),
+    'members'
+  ],
   ['DELETE /api/admin/members/:id', () => adminFetch('/api/admin/members/1', { method: 'DELETE' }), 'members'],
-  ['DELETE /api/admin/members/batch', () => adminFetch('/api/admin/members/batch', { method: 'DELETE', body: { ids: [1] } }), 'members'],
-  ['POST /api/admin/members/batch', () => adminFetch('/api/admin/members/batch', { method: 'POST', body: { memberIds: [1], status: 'active' } }), 'members'],
-  ['POST /api/admin/import', () => adminFetch('/api/admin/import', { method: 'POST', body: { csv: 'Prénom,Nom,Email\nA,B,a@test.example' } }), 'members'],
+  [
+    'DELETE /api/admin/members/batch',
+    () => adminFetch('/api/admin/members/batch', { method: 'DELETE', body: { ids: [1] } }),
+    'members'
+  ],
+  [
+    'POST /api/admin/members/batch',
+    () => adminFetch('/api/admin/members/batch', { method: 'POST', body: { memberIds: [1], status: 'active' } }),
+    'members'
+  ],
+  [
+    'POST /api/admin/import',
+    () => adminFetch('/api/admin/import', { method: 'POST', body: { csv: 'Prénom,Nom,Email\nA,B,a@test.example' } }),
+    'members'
+  ],
   ['GET /api/config', () => SELF.fetch(`${BASE}/api/config`), 'settings'],
   ['GET /api/stats', () => SELF.fetch(`${BASE}/api/stats`), 'members']
 ])('%s when its table is gone', (_label, call, table) => {

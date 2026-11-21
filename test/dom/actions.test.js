@@ -28,8 +28,15 @@ afterEach(() => unbind());
 describe('buildActions', () => {
   it('registers every dashboard action and change handler as own keys', () => {
     expect(Object.keys(actions).sort()).toEqual([
-      'approve-all', 'approve-member', 'bulk-approve', 'bulk-delete', 'bulk-set-status',
-      'confirm-delete-member', 'edit-member', 'reject-member', 'sort-members'
+      'approve-all',
+      'approve-member',
+      'bulk-approve',
+      'bulk-delete',
+      'bulk-set-status',
+      'confirm-delete-member',
+      'edit-member',
+      'reject-member',
+      'sort-members'
     ]);
     expect(Object.keys(changes).sort()).toEqual(['toggle-member-select', 'toggle-select-all']);
   });
@@ -61,7 +68,8 @@ describe('click delegation through astro-design', () => {
   });
 
   it('prevents the default of handled button clicks and ignores unknown actions', () => {
-    document.body.innerHTML = '<button id="a" data-action="sort-members" data-field="email"></button><button id="b" data-action="nope"></button>';
+    document.body.innerHTML =
+      '<button id="a" data-action="sort-members" data-field="email"></button><button id="b" data-action="nope"></button>';
     expect(click(document.getElementById('a')).defaultPrevented).toBe(true);
     expect(click(document.getElementById('b')).defaultPrevented).toBe(false);
   });

@@ -6,17 +6,39 @@ import { describe, it, expect } from 'vitest';
 import schemaSql from '../db/schema.sql?raw';
 import { sqlList } from '../src/lib/sql.js';
 import {
-  ACTIVE_STATUSES, BATCH_STATUSES, BUREAU_ROLES, DEFAULT_ACADEMIC_YEAR, DEFAULT_ENROLLMENT_TRACKS,
-  STATUS_LABELS, UNIQUE_BUREAU_ROLES, VALID_STATUSES,
-  approvalDates, expiryDateFor, isActiveStatus, isBureauRole, isUniqueBureauRole, isValidStatus,
-  normalizeEmail, sqlTimestamp, statusFromLabel, statusLabel
+  ACTIVE_STATUSES,
+  BATCH_STATUSES,
+  BUREAU_ROLES,
+  DEFAULT_ACADEMIC_YEAR,
+  DEFAULT_ENROLLMENT_TRACKS,
+  STATUS_LABELS,
+  UNIQUE_BUREAU_ROLES,
+  VALID_STATUSES,
+  approvalDates,
+  expiryDateFor,
+  isActiveStatus,
+  isBureauRole,
+  isUniqueBureauRole,
+  isValidStatus,
+  normalizeEmail,
+  sqlTimestamp,
+  statusFromLabel,
+  statusLabel
 } from '../src/shared/membership.js';
 
 describe('status vocabulary', () => {
   it('has one French label per status, in the canonical order', () => {
     expect(VALID_STATUSES).toEqual([
-      'pending', 'active', 'honor', 'secretary', 'treasurer', 'president',
-      'honorary_president', 'vice_president', 'rejected', 'expired'
+      'pending',
+      'active',
+      'honor',
+      'secretary',
+      'treasurer',
+      'president',
+      'honorary_president',
+      'vice_president',
+      'rejected',
+      'expired'
     ]);
     expect(Object.keys(STATUS_LABELS)).toEqual([...VALID_STATUSES]);
     expect(statusLabel('vice_president')).toBe('Vice-président');
@@ -33,9 +55,15 @@ describe('status vocabulary', () => {
   });
 
   it('counts active, honor and every bureau role as active', () => {
-    expect([...ACTIVE_STATUSES].sort()).toEqual(
-      ['active', 'honor', 'honorary_president', 'president', 'secretary', 'treasurer', 'vice_president']
-    );
+    expect([...ACTIVE_STATUSES].sort()).toEqual([
+      'active',
+      'honor',
+      'honorary_president',
+      'president',
+      'secretary',
+      'treasurer',
+      'vice_president'
+    ]);
     for (const status of ['pending', 'rejected', 'expired', '', null, undefined, 5]) {
       expect(isActiveStatus(status)).toBe(false);
     }
@@ -53,12 +81,27 @@ describe('status vocabulary', () => {
 
 describe('statusFromLabel', () => {
   it.each([
-    ['Membre actif', 'active'], ['actif', 'active'], ['ACTIF', 'active'], ["Membre d'honneur", 'honor'], ['membre d’honneur', 'honor'],
-    ['Honneur', 'honor'], ['Secrétaire', 'secretary'], ['secretaire', 'secretary'], ['TRÉSORIER', 'treasurer'],
-    ['Président', 'president'], ["Président d'honneur", 'honorary_president'], ["president d'honneur", 'honorary_president'],
-    ['Vice-président', 'vice_president'], ['Vice Président', 'vice_president'], ['vice president', 'vice_president'],
-    ['En attente', 'pending'], ['Refusé', 'rejected'], ['expire', 'expired'],
-    ['vice_president', 'vice_president'], ['honorary_president', 'honorary_president'], ['  pending  ', 'pending']
+    ['Membre actif', 'active'],
+    ['actif', 'active'],
+    ['ACTIF', 'active'],
+    ["Membre d'honneur", 'honor'],
+    ['membre d’honneur', 'honor'],
+    ['Honneur', 'honor'],
+    ['Secrétaire', 'secretary'],
+    ['secretaire', 'secretary'],
+    ['TRÉSORIER', 'treasurer'],
+    ['Président', 'president'],
+    ["Président d'honneur", 'honorary_president'],
+    ["president d'honneur", 'honorary_president'],
+    ['Vice-président', 'vice_president'],
+    ['Vice Président', 'vice_president'],
+    ['vice president', 'vice_president'],
+    ['En attente', 'pending'],
+    ['Refusé', 'rejected'],
+    ['expire', 'expired'],
+    ['vice_president', 'vice_president'],
+    ['honorary_president', 'honorary_president'],
+    ['  pending  ', 'pending']
   ])('maps %j to %s', (label, status) => {
     expect(statusFromLabel(label)).toBe(status);
   });

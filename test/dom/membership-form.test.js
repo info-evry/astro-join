@@ -23,7 +23,8 @@ const FORM_DOM = `
   <div id="success-modal" class="modal hidden"><p id="success-message"></p></div>
 `;
 
-const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 
 const byId = (id) => document.getElementById(id);
 const hidden = (id) => byId(id).classList.contains('hidden');
@@ -58,11 +59,20 @@ async function submit() {
   await settle();
 }
 
-const VALID = { firstName: 'Ada', lastName: 'Lovelace', email: 'ada@test.example', enrollmentTrack: 'L3 Informatique', discord: '@ada' };
+const VALID = {
+  firstName: 'Ada',
+  lastName: 'Lovelace',
+  email: 'ada@test.example',
+  enrollmentTrack: 'L3 Informatique',
+  discord: '@ada'
+};
 
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
-  config = () => json({ config: { membershipOpen: true, currentYear: '2025-2026', enrollmentTracks: ['L3 Informatique', 'M1 "Info"'] } });
+  config = () =>
+    json({
+      config: { membershipOpen: true, currentYear: '2025-2026', enrollmentTracks: ['L3 Informatique', 'M1 "Info"'] }
+    });
   stubServer();
 });
 
@@ -104,7 +114,9 @@ describe('configuration', () => {
 
   it('keeps the form usable when the network is down', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    config = () => { throw new TypeError('Failed to fetch'); };
+    config = () => {
+      throw new TypeError('Failed to fetch');
+    };
     await boot();
     expect(byId('submit-btn').disabled).toBe(false);
   });
@@ -131,7 +143,11 @@ describe('submitting', () => {
 
     const [url, options] = fetchMock.mock.calls.at(-1);
     expect(url).toMatch(/\/api\/apply$/);
-    expect(JSON.parse(options.body)).toMatchObject({ firstName: 'Ada', email: 'ada@test.example', enrollmentTrack: 'L3 Informatique' });
+    expect(JSON.parse(options.body)).toMatchObject({
+      firstName: 'Ada',
+      email: 'ada@test.example',
+      enrollmentTrack: 'L3 Informatique'
+    });
     expect(hidden('success-modal')).toBe(false);
     expect(byId('success-message').textContent).toBe('Demande enregistrée');
   });
@@ -161,7 +177,11 @@ describe('submitting', () => {
   });
 
   it('survives a network failure', async () => {
-    stubServer({ applyResponse: () => { throw new TypeError('Failed to fetch'); } });
+    stubServer({
+      applyResponse: () => {
+        throw new TypeError('Failed to fetch');
+      }
+    });
     await boot();
     fill(VALID);
 

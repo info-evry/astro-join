@@ -7,7 +7,11 @@ import { describe, it, expect } from 'vitest';
 import managePage from '../../src/components/admin/ManagePage.astro?raw';
 import { ADMIN_DOM } from './helpers.js';
 
-const clientSources = import.meta.glob('../../src/client/admin/**/*.js', { query: '?raw', import: 'default', eager: true });
+const clientSources = import.meta.glob('../../src/client/admin/**/*.js', {
+  query: '?raw',
+  import: 'default',
+  eager: true
+});
 
 /** Ids the sidebar component generates from its `tabs` prop (not literal in the page). */
 const SIDEBAR_BADGE_IDS = new Set(['members-badge', 'pending-badge']);
@@ -41,8 +45,9 @@ describe('admin markup contract', () => {
   });
 
   it('every id the client looks up exists in ManagePage.astro', () => {
-    const missing = [...referencedIds()]
-      .filter((id) => !pageIds.has(id) && !SIDEBAR_BADGE_IDS.has(id) && !RENDERED_IDS.has(id));
+    const missing = [...referencedIds()].filter(
+      (id) => !pageIds.has(id) && !SIDEBAR_BADGE_IDS.has(id) && !RENDERED_IDS.has(id)
+    );
     expect(missing).toEqual([]);
   });
 
@@ -67,8 +72,9 @@ describe('admin markup contract', () => {
   it('every data-action the client renders in tables has a registered handler', async () => {
     const { buildActions } = await import('../../src/client/admin/actions.js');
     const { actions } = buildActions({ api: () => {}, loadData: () => {} });
-    const rendered = Object.values(clientSources)
-      .flatMap((source) => [...source.matchAll(/data-action="([\w-]+)"/g)].map((match) => match[1]));
+    const rendered = Object.values(clientSources).flatMap((source) =>
+      [...source.matchAll(/data-action="([\w-]+)"/g)].map((match) => match[1])
+    );
     expect(rendered.length).toBeGreaterThan(0);
     expect(rendered.filter((name) => !Object.hasOwn(actions, name))).toEqual([]);
   });
@@ -76,8 +82,9 @@ describe('admin markup contract', () => {
   it('every data-change the client renders has a registered handler', async () => {
     const { buildActions } = await import('../../src/client/admin/actions.js');
     const { changes } = buildActions({ api: () => {}, loadData: () => {} });
-    const rendered = Object.values(clientSources)
-      .flatMap((source) => [...source.matchAll(/data-change="([\w-]+)"/g)].map((match) => match[1]));
+    const rendered = Object.values(clientSources).flatMap((source) =>
+      [...source.matchAll(/data-change="([\w-]+)"/g)].map((match) => match[1])
+    );
     expect(rendered.length).toBeGreaterThan(0);
     expect(rendered.filter((name) => !Object.hasOwn(changes, name))).toEqual([]);
   });

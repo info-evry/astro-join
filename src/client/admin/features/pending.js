@@ -36,7 +36,9 @@ export function renderPendingApplications(members) {
         </tr>
       </thead>
       <tbody>
-        ${pending.map((m) => `
+        ${pending
+          .map(
+            (m) => `
           <tr data-id="${m.id}">
             <td>${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)}</td>
             <td><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a></td>
@@ -50,7 +52,9 @@ export function renderPendingApplications(members) {
               </div>
             </td>
           </tr>
-        `).join('')}
+        `
+          )
+          .join('')}
       </tbody>
     </table>
   `;
@@ -97,7 +101,10 @@ export function approveAll(api, loadData) {
     confirmLabel: 'Approuver',
     variant: 'primary',
     onConfirm: async () => {
-      for (const memberIds of chunk(pending.map((m) => m.id), MAX_BATCH_IDS)) {
+      for (const memberIds of chunk(
+        pending.map((m) => m.id),
+        MAX_BATCH_IDS
+      )) {
         await api('/admin/members/batch', {
           method: 'POST',
           body: JSON.stringify({ memberIds, status: 'active', reason: 'Batch approved by admin' })

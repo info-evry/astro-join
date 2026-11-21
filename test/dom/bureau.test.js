@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  mountAdminDom, byId, makeMember, inlineHandlerAttributes, XSS_ATTRIBUTE, XSS_APOSTROPHE
-} from './helpers.js';
+import { mountAdminDom, byId, makeMember, inlineHandlerAttributes, XSS_ATTRIBUTE, XSS_APOSTROPHE } from './helpers.js';
 
 let bureau;
 let state;
@@ -30,13 +28,15 @@ describe('renderBureau', () => {
 
   it('lists only officers, in role order, with French role names', () => {
     bureau.renderBureau([
-      makeMember({ status: 'treasurer' }), makeMember({ status: 'active' }), makeMember({ status: 'honorary_president' }),
-      makeMember({ status: 'secretary' }), makeMember({ status: 'president' }), makeMember({ status: 'vice_president' }),
+      makeMember({ status: 'treasurer' }),
+      makeMember({ status: 'active' }),
+      makeMember({ status: 'honorary_president' }),
+      makeMember({ status: 'secretary' }),
+      makeMember({ status: 'president' }),
+      makeMember({ status: 'vice_president' }),
       makeMember({ status: 'honor' })
     ]);
-    expect(roles()).toEqual([
-      'Président', 'Vice-président', 'Secrétaire', 'Trésorier', "Président d'honneur"
-    ]);
+    expect(roles()).toEqual(['Président', 'Vice-président', 'Secrétaire', 'Trésorier', "Président d'honneur"]);
   });
 
   it('keeps several honorary presidents', () => {
@@ -45,7 +45,9 @@ describe('renderBureau', () => {
   });
 
   it('shows name and email link for each officer', () => {
-    bureau.renderBureau([makeMember({ status: 'president', first_name: 'Ada', last_name: 'Lovelace', email: 'ada@x.fr' })]);
+    bureau.renderBureau([
+      makeMember({ status: 'president', first_name: 'Ada', last_name: 'Lovelace', email: 'ada@x.fr' })
+    ]);
     expect(container().querySelector('.bureau-name').textContent).toBe('Ada Lovelace');
     const link = container().querySelector('.bureau-email a');
     expect(link.getAttribute('href')).toBe('mailto:ada@x.fr');
@@ -64,7 +66,9 @@ describe('renderBureau', () => {
     ['apostrophes', XSS_APOSTROPHE],
     ['a script tag', '<script>alert(1)</script>']
   ])('escapes %s in names and emails', (_label, payload) => {
-    bureau.renderBureau([makeMember({ status: 'president', first_name: payload, last_name: payload, email: `${payload}@x.fr` })]);
+    bureau.renderBureau([
+      makeMember({ status: 'president', first_name: payload, last_name: payload, email: `${payload}@x.fr` })
+    ]);
 
     expect(container().querySelector('img, script')).toBeNull();
     expect(inlineHandlerAttributes(container())).toEqual([]);

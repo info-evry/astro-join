@@ -82,7 +82,10 @@ function confirmBulkStatus({ message, confirmLabel, variant, status, reason, suc
     variant,
     onConfirm: async () => {
       for (const group of chunk(ids, MAX_BATCH_IDS)) {
-        await api('/admin/members/batch', { method: 'POST', body: JSON.stringify({ memberIds: group, status, reason }) });
+        await api('/admin/members/batch', {
+          method: 'POST',
+          body: JSON.stringify({ memberIds: group, status, reason })
+        });
       }
       toastSuccess(successMessage);
       state.selectedMembers.clear();

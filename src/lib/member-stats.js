@@ -13,7 +13,9 @@ export const ACTIVE_STATUSES_SQL = sqlList(ACTIVE_STATUSES);
  * @returns {Promise<{ total: number, active: number, pending: number, rejected: number, expired: number }>}
  */
 export async function countMembers(db) {
-  const row = await db.prepare(`
+  const row = await db
+    .prepare(
+      `
     SELECT
       COUNT(*) AS total,
       COUNT(CASE WHEN status IN (${ACTIVE_STATUSES_SQL}) THEN 1 END) AS active,
@@ -21,7 +23,9 @@ export async function countMembers(db) {
       COUNT(CASE WHEN status = 'rejected' THEN 1 END) AS rejected,
       COUNT(CASE WHEN status = 'expired' THEN 1 END) AS expired
     FROM members
-  `).first();
+  `
+    )
+    .first();
   return {
     total: row?.total || 0,
     active: row?.active || 0,

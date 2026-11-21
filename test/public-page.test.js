@@ -25,8 +25,13 @@ function control(name) {
 
 describe('public form', () => {
   it.each([
-    ['firstName', LIMITS.name], ['lastName', LIMITS.name], ['email', LIMITS.email], ['studentId', LIMITS.studentId],
-    ['phone', LIMITS.phone], ['telegram', LIMITS.handle], ['discord', LIMITS.handle]
+    ['firstName', LIMITS.name],
+    ['lastName', LIMITS.name],
+    ['email', LIMITS.email],
+    ['studentId', LIMITS.studentId],
+    ['phone', LIMITS.phone],
+    ['telegram', LIMITS.handle],
+    ['discord', LIMITS.handle]
   ])('limits %s to the shared limit (%i)', (name, limit) => {
     expect(control(name)).toContain(`maxlength="${limit}"`);
   });

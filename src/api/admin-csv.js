@@ -89,8 +89,13 @@ const HEADER_ALIASES = {
   phone: ['téléphone', 'telephone', 'phone', 'tel'],
   studentId: ['numéro étudiant', 'numero etudiant', 'n° étudiant', 'student_id', 'numéro', 'numero'],
   enrollmentNumber: [
-    'numéro inscription', 'numero inscription', 'n° inscription',
-    "numéro d'inscription", "numero d'inscription", 'numéro d’inscription', 'enrollment_number'
+    'numéro inscription',
+    'numero inscription',
+    'n° inscription',
+    "numéro d'inscription",
+    "numero d'inscription",
+    'numéro d’inscription',
+    'enrollment_number'
   ],
   enrollmentTrack: ["filière d'inscription", 'filiere', 'track', 'enrollment_track', 'cursus'],
   telegram: ['telegram'],
@@ -131,7 +136,8 @@ function extractRow(cells, headerMap) {
 
 /** Why a row cannot be imported (French, without the "Ligne N" prefix), or null. Pure: no database access. */
 function rowProblem(member) {
-  if (!member.firstName || !member.lastName || !member.email) return 'champs obligatoires manquants (prénom, nom, email)';
+  if (!member.firstName || !member.lastName || !member.email)
+    return 'champs obligatoires manquants (prénom, nom, email)';
   if (!isValidEmail(member.email)) return 'email invalide';
   if (member.status !== null && statusFromLabel(member.status) === null) {
     return `statut inconnu « ${member.status.slice(0, 40)} »`;
@@ -158,24 +164,42 @@ function roleProblem(member, status, holders, taken) {
 
 /** History row for the member with this email (its id is only known to the database). */
 function importHistory(db, email, oldStatus, newStatus) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     INSERT INTO membership_history (member_id, old_status, new_status, reason)
     SELECT id, ?, ?, ? FROM members WHERE email = ?
-  `).bind(oldStatus, newStatus, IMPORT_REASON, email);
+  `
+    )
+    .bind(oldStatus, newStatus, IMPORT_REASON, email);
 }
 
 /** Statements creating a member. */
 function insertStatements(db, member, status) {
   const dates = approvalDates(null, status);
-  const write = db.prepare(`
+  const write = db
+    .prepare(
+      `
     INSERT INTO members (first_name, last_name, email, phone, student_id, enrollment_number,
       enrollment_track, telegram, discord, notes, status, approved_at, expires_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    member.firstName, member.lastName, member.email, member.phone, member.studentId, member.enrollmentNumber,
-    member.enrollmentTrack ?? 'Autre', member.telegram, member.discord, member.notes, status,
-    dates?.approvedAt ?? null, dates?.expiresAt ?? null
-  );
+  `
+    )
+    .bind(
+      member.firstName,
+      member.lastName,
+      member.email,
+      member.phone,
+      member.studentId,
+      member.enrollmentNumber,
+      member.enrollmentTrack ?? 'Autre',
+      member.telegram,
+      member.discord,
+      member.notes,
+      status,
+      dates?.approvedAt ?? null,
+      dates?.expiresAt ?? null
+    );
   return [write, importHistory(db, member.email, null, status)];
 }
 
@@ -183,7 +207,9 @@ function insertStatements(db, member, status) {
 function updateStatements(db, member, oldStatus, status) {
   const newStatus = status ?? oldStatus;
   const dates = status ? approvalDates(oldStatus, status) : null;
-  const write = db.prepare(`
+  const write = db
+    .prepare(
+      `
     UPDATE members SET
       first_name = ?, last_name = ?,
       phone = COALESCE(?, phone), student_id = COALESCE(?, student_id),
@@ -194,11 +220,23 @@ function updateStatements(db, member, oldStatus, status) {
       approved_at = COALESCE(?, approved_at), expires_at = COALESCE(?, expires_at),
       updated_at = CURRENT_TIMESTAMP
     WHERE email = ?
-  `).bind(
-    member.firstName, member.lastName, member.phone, member.studentId, member.enrollmentNumber,
-    member.enrollmentTrack, member.telegram, member.discord, member.notes, status,
-    dates?.approvedAt ?? null, dates?.expiresAt ?? null, member.email
-  );
+  `
+    )
+    .bind(
+      member.firstName,
+      member.lastName,
+      member.phone,
+      member.studentId,
+      member.enrollmentNumber,
+      member.enrollmentTrack,
+      member.telegram,
+      member.discord,
+      member.notes,
+      status,
+      dates?.approvedAt ?? null,
+      dates?.expiresAt ?? null,
+      member.email
+    );
   return newStatus === oldStatus ? [write] : [write, importHistory(db, member.email, oldStatus, newStatus)];
 }
 
@@ -217,9 +255,11 @@ async function loadExistingMembers(db, emails) {
 
 /** Current holders of the unique bureau roles (role -> member). */
 async function loadRoleHolders(db) {
-  const { results } = await db.prepare(
-    `SELECT status, first_name, last_name, email FROM members WHERE status IN (${sqlList(UNIQUE_BUREAU_ROLES)})`
-  ).all();
+  const { results } = await db
+    .prepare(
+      `SELECT status, first_name, last_name, email FROM members WHERE status IN (${sqlList(UNIQUE_BUREAU_ROLES)})`
+    )
+    .all();
   return new Map((results || []).map((member) => [member.status, member]));
 }
 
@@ -275,7 +315,10 @@ async function runBatch(db, statements) {
  */
 async function writePlans(db, plans, stats) {
   for (const group of chunk(plans, ROWS_PER_BATCH)) {
-    const failure = await runBatch(db, group.flatMap((plan) => plan.statements));
+    const failure = await runBatch(
+      db,
+      group.flatMap((plan) => plan.statements)
+    );
     if (!failure) {
       for (const plan of group) stats[plan.kind]++;
       continue;

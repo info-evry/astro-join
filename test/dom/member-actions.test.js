@@ -1,8 +1,6 @@
 /* global document, Event, HTMLAnchorElement */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  mountAdminDom, byId, makeMember, csvResponse, settle, currentToast, isHidden, click
-} from './helpers.js';
+import { mountAdminDom, byId, makeMember, csvResponse, settle, currentToast, isHidden, click } from './helpers.js';
 
 let actions;
 let state;
@@ -18,7 +16,14 @@ beforeEach(async () => {
   api = vi.fn().mockResolvedValue({ success: true });
   loadData = vi.fn();
   state.members = [
-    makeMember({ id: 1, first_name: 'Ada', last_name: 'Lovelace', status: 'pending', student_id: 'S1', notes: 'hello' }),
+    makeMember({
+      id: 1,
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      status: 'pending',
+      student_id: 'S1',
+      notes: 'hello'
+    }),
     makeMember({ id: 2, first_name: '<b>Bob</b>', last_name: 'Stone', status: 'active' }),
     makeMember({ id: 3, status: 'active' })
   ];
@@ -83,8 +88,13 @@ describe('handleMemberSubmit', () => {
     expect(endpoint).toBe('/admin/members/1');
     expect(options.method).toBe('PUT');
     expect(JSON.parse(options.body)).toEqual({
-      firstName: 'Changed', lastName: 'Lovelace', email: 'member1@test.example', studentId: 'S1',
-      enrollmentTrack: 'L3 Informatique', status: 'active', notes: 'hello'
+      firstName: 'Changed',
+      lastName: 'Lovelace',
+      email: 'member1@test.example',
+      studentId: 'S1',
+      enrollmentTrack: 'L3 Informatique',
+      status: 'active',
+      notes: 'hello'
     });
   });
 
@@ -214,7 +224,9 @@ describe('bulk actions', () => {
     await confirm();
 
     expect(JSON.parse(api.mock.calls[0][1].body)).toEqual({
-      memberIds: [2], status, reason: `Bulk status change to ${status} by admin`
+      memberIds: [2],
+      status,
+      reason: `Bulk status change to ${status} by admin`
     });
     expect(toastText()).toBe('1 membre(s) mis à jour');
   });
@@ -261,7 +273,10 @@ describe('bulk actions', () => {
   });
 
   it('bulkDelete splits a selection above the server cap (1000 ids) into several requests', async () => {
-    api.mockImplementation(async (_endpoint, options) => ({ success: true, deleted: JSON.parse(options.body).ids.length }));
+    api.mockImplementation(async (_endpoint, options) => ({
+      success: true,
+      deleted: JSON.parse(options.body).ids.length
+    }));
     select(...Array.from({ length: 2500 }, (_, i) => i + 1));
     actions.bulkDelete(api, loadData);
     await confirm();

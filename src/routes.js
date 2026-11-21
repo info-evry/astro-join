@@ -26,12 +26,14 @@ export function createRouter() {
 
   // Rate limit sensitive endpoints (backed by the RATE_LIMIT KV namespace).
   // It runs before the admin guard so failed token guesses are counted too.
-  router.use(createRateLimiter({
-    rules: [
-      { name: 'apply', methods: ['POST'], match: pathPrefix('/api/apply'), limit: 5, windowSec: 600 },
-      ADMIN_RATE_LIMIT
-    ]
-  }));
+  router.use(
+    createRateLimiter({
+      rules: [
+        { name: 'apply', methods: ['POST'], match: pathPrefix('/api/apply'), limit: 5, windowSec: 600 },
+        ADMIN_RATE_LIMIT
+      ]
+    })
+  );
 
   // Defence in depth: nothing under /api/admin is reachable without the admin
   // token even if a handler forgets to wrap itself in adminHandler().

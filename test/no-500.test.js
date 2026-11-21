@@ -65,16 +65,66 @@ const OBJECT_BODIES = [
   ['empty object', {}],
   ['5000 ids as memberIds', { memberIds: IDS_5000, status: 'active' }],
   ['5000 ids as ids', { ids: IDS_5000 }],
-  ['hostile ids', { memberIds: ['abc', 0, -1, 1.5, '99999999999999999999', '%00', '1e3', null, {}, []], ids: ['abc', 0] }],
+  [
+    'hostile ids',
+    { memberIds: ['abc', 0, -1, 1.5, '99999999999999999999', '%00', '1e3', null, {}, []], ids: ['abc', 0] }
+  ],
   ['sparse and nested ids', { memberIds: [1, , [2]], ids: [[1]], status: 'active' }], // eslint-disable-line no-sparse-arrays
   ['numeric status', { memberIds: [1], status: 5, reason: 7 }],
   ['object fields', { firstName: {}, lastName: [], email: 5, status: {}, notes: false, reason: {} }],
   ['null fields', { firstName: null, lastName: null, email: null, status: null, enrollmentTrack: null, csv: null }],
-  ['very long strings', { firstName: LONG, lastName: LONG, email: LONG, studentId: LONG, phone: LONG, telegram: LONG, discord: LONG, notes: LONG, enrollmentTrack: LONG, reason: LONG, csv: LONG }],
-  ['unicode strings', { firstName: UNICODE, lastName: UNICODE, email: `${UNICODE}@x.fr`, discord: UNICODE, notes: UNICODE, enrollmentTrack: UNICODE, csv: UNICODE }],
-  ['unicode in otherwise valid fields', { firstName: UNICODE, lastName: UNICODE, email: 'unicode@test.example', enrollmentTrack: 'Autre', discord: UNICODE, studentId: UNICODE, phone: UNICODE, telegram: UNICODE, notes: UNICODE, reason: UNICODE, status: 'active' }],
-  ['unicode in a valid CSV', { csv: `Prénom;Nom;Email;Notes;Telegram\n${UNICODE};x;unicode-csv@test.example;${UNICODE};${UNICODE}` }],
-  ['valid-looking application', { firstName: 'A', lastName: 'B', email: 'hostile@test.example', enrollmentTrack: 'Autre', discord: '@a' }],
+  [
+    'very long strings',
+    {
+      firstName: LONG,
+      lastName: LONG,
+      email: LONG,
+      studentId: LONG,
+      phone: LONG,
+      telegram: LONG,
+      discord: LONG,
+      notes: LONG,
+      enrollmentTrack: LONG,
+      reason: LONG,
+      csv: LONG
+    }
+  ],
+  [
+    'unicode strings',
+    {
+      firstName: UNICODE,
+      lastName: UNICODE,
+      email: `${UNICODE}@x.fr`,
+      discord: UNICODE,
+      notes: UNICODE,
+      enrollmentTrack: UNICODE,
+      csv: UNICODE
+    }
+  ],
+  [
+    'unicode in otherwise valid fields',
+    {
+      firstName: UNICODE,
+      lastName: UNICODE,
+      email: 'unicode@test.example',
+      enrollmentTrack: 'Autre',
+      discord: UNICODE,
+      studentId: UNICODE,
+      phone: UNICODE,
+      telegram: UNICODE,
+      notes: UNICODE,
+      reason: UNICODE,
+      status: 'active'
+    }
+  ],
+  [
+    'unicode in a valid CSV',
+    { csv: `Prénom;Nom;Email;Notes;Telegram\n${UNICODE};x;unicode-csv@test.example;${UNICODE};${UNICODE}` }
+  ],
+  [
+    'valid-looking application',
+    { firstName: 'A', lastName: 'B', email: 'hostile@test.example', enrollmentTrack: 'Autre', discord: '@a' }
+  ],
   ['status values', { status: '__proto__', memberIds: [1] }],
   ['settings keys', { membership_open: {}, current_year: [], enrollment_tracks: 'x', toString: 1, constructor: 1 }],
   ['settings values', { membership_open: 'maybe', current_year: 2024, enrollment_tracks: [null, 1, ['x']] }],
@@ -85,13 +135,38 @@ const OBJECT_BODIES = [
 ];
 
 const ID_VALUES = [
-  'abc', '0', '-1', '1.5', '99999999999999999999', '%00', '1e3', '12abc', 'batch', '__proto__', 'constructor',
-  '%E2%82%AC', '%', '..', ' ', 'x'.repeat(5000), '1'.repeat(400)
+  'abc',
+  '0',
+  '-1',
+  '1.5',
+  '99999999999999999999',
+  '%00',
+  '1e3',
+  '12abc',
+  'batch',
+  '__proto__',
+  'constructor',
+  '%E2%82%AC',
+  '%',
+  '..',
+  ' ',
+  'x'.repeat(5000),
+  '1'.repeat(400)
 ];
 
 const QUERIES = [
-  '', '?status=', '?status=active', '?status=bureau', '?status=nope', '?status=__proto__', `?status=${'x'.repeat(5000)}`,
-  '?status=%00', '?status=%0d%0aSet-Cookie:a=b', '?status[]=a', '?status=a&status=b', '?%'
+  '',
+  '?status=',
+  '?status=active',
+  '?status=bureau',
+  '?status=nope',
+  '?status=__proto__',
+  `?status=${'x'.repeat(5000)}`,
+  '?status=%00',
+  '?status=%0d%0aSet-Cookie:a=b',
+  '?status[]=a',
+  '?status=a&status=b',
+  '?%'
 ];
 
 // ---------------------------------------------------------------------------
@@ -158,7 +233,8 @@ function attacksOn(route, memberId) {
   const attacks = [];
   for (const path of paths) {
     const pathBodies = path === paths[0] || bodies.length === 1 ? bodies : bodies.slice(0, 3);
-    for (const [label, body] of pathBodies) attacks.push([`${route.method} ${path.slice(0, 80)} [${label}]`, route.method, path, body]);
+    for (const [label, body] of pathBodies)
+      attacks.push([`${route.method} ${path.slice(0, 80)} [${label}]`, route.method, path, body]);
   }
   return attacks;
 }
@@ -166,21 +242,33 @@ function attacksOn(route, memberId) {
 describe('route registry', () => {
   it('discovers the routes of src/routes.js', () => {
     expect(ROUTES.length).toBeGreaterThanOrEqual(13);
-    expect(ROUTES.map((route) => route.label)).toEqual(expect.arrayContaining([
-      'GET /api/config', 'POST /api/apply', 'PUT /api/admin/members/{id}', 'DELETE /api/admin/members/batch'
-    ]));
+    expect(ROUTES.map((route) => route.label)).toEqual(
+      expect.arrayContaining([
+        'GET /api/config',
+        'POST /api/apply',
+        'PUT /api/admin/members/{id}',
+        'DELETE /api/admin/members/batch'
+      ])
+    );
   });
 });
 
 describe.each(ROUTES)('$label never answers 500 on hostile input', (route) => {
-  it.each([['without a token', false], ['with a valid admin token', true]])('%s', async (_label, authenticated) => {
-    const memberId = await insertMember({ status: 'active' });
-    for (const [context, method, path, body] of attacksOn(route, memberId)) {
-      const response = await send(method, path, { body, token: authenticated });
-      await expectSafe(response, `${authenticated ? 'auth' : 'anon'} ${context}`, path);
-    }
-    expect({}.polluted).toBeUndefined();
-  }, 120_000);
+  it.each([
+    ['without a token', false],
+    ['with a valid admin token', true]
+  ])(
+    '%s',
+    async (_label, authenticated) => {
+      const memberId = await insertMember({ status: 'active' });
+      for (const [context, method, path, body] of attacksOn(route, memberId)) {
+        const response = await send(method, path, { body, token: authenticated });
+        await expectSafe(response, `${authenticated ? 'auth' : 'anon'} ${context}`, path);
+      }
+      expect({}.polluted).toBeUndefined();
+    },
+    120_000
+  );
 });
 
 describe('coverage of the attack set', () => {

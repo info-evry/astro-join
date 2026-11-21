@@ -182,7 +182,8 @@ export function inlineHandlerAttributes(root) {
   const found = [];
   for (const element of root.querySelectorAll('*')) {
     for (const attribute of element.attributes) {
-      if (attribute.name.toLowerCase().startsWith('on')) found.push(`${element.tagName.toLowerCase()}[${attribute.name}]`);
+      if (attribute.name.toLowerCase().startsWith('on'))
+        found.push(`${element.tagName.toLowerCase()}[${attribute.name}]`);
     }
   }
   return found;

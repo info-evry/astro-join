@@ -1,8 +1,15 @@
 /* global Event */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  mountAdminDom, byId, makeMember, XSS_ATTRIBUTE, XSS_APOSTROPHE,
-  inlineHandlerAttributes, click, change, isolateDocumentListeners
+  mountAdminDom,
+  byId,
+  makeMember,
+  XSS_ATTRIBUTE,
+  XSS_APOSTROPHE,
+  inlineHandlerAttributes,
+  click,
+  change,
+  isolateDocumentListeners
 } from './helpers.js';
 
 isolateDocumentListeners();
@@ -28,8 +35,11 @@ const render = (list) => {
 
 describe('renderMembers - markup contract', () => {
   it.each([
-    ['active', 'Membre actif'], ['pending', 'En attente'], ['honor', "Membre d'honneur"],
-    ['vice_president', 'Vice-président'], ['expired', 'Expiré']
+    ['active', 'Membre actif'],
+    ['pending', 'En attente'],
+    ['honor', "Membre d'honneur"],
+    ['vice_president', 'Vice-président'],
+    ['expired', 'Expiré']
   ])('labels the %s status with the shared French label (%s)', (status, label) => {
     render([makeMember({ id: 1, status })]);
     expect(container().querySelector('.badge').textContent).toBe(label);
@@ -93,10 +103,20 @@ describe('renderMembers - markup contract', () => {
 });
 
 describe('renderMembers - escaping untrusted data', () => {
-  const hostile = (payload) => makeMember({
-    id: 1, first_name: payload, last_name: payload, email: `a${payload}@x.fr`, student_id: payload,
-    enrollment_track: payload, phone: payload, telegram: payload, discord: payload, notes: payload, status: 'pending'
-  });
+  const hostile = (payload) =>
+    makeMember({
+      id: 1,
+      first_name: payload,
+      last_name: payload,
+      email: `a${payload}@x.fr`,
+      student_id: payload,
+      enrollment_track: payload,
+      phone: payload,
+      telegram: payload,
+      discord: payload,
+      notes: payload,
+      status: 'pending'
+    });
 
   it.each([
     ['a quote/tag attribute breakout', XSS_ATTRIBUTE],
@@ -181,7 +201,12 @@ describe('sorting', () => {
     render(people());
     const headers = [...container().querySelectorAll('th.sortable')];
     expect(headers.map((th) => th.dataset.field)).toEqual([
-      'last_name', 'email', 'student_id', 'enrollment_track', 'status', 'created_at'
+      'last_name',
+      'email',
+      'student_id',
+      'enrollment_track',
+      'status',
+      'created_at'
     ]);
     expect(headers.every((th) => th.dataset.action === 'sort-members')).toBe(true);
     expect(headers.every((th) => th.querySelector('.sort-indicator'))).toBe(true);
@@ -238,11 +263,45 @@ describe('sorting', () => {
 
 describe('filtering', () => {
   const roster = () => [
-    makeMember({ id: 1, status: 'active', enrollment_track: 'L3 Informatique', first_name: 'Ada', last_name: 'Lovelace', email: 'ada@x.fr' }),
-    makeMember({ id: 2, status: 'pending', enrollment_track: 'M1 Informatique', first_name: 'Bob', last_name: 'Stone', notes: 'Cherche un stage' }),
-    makeMember({ id: 3, status: 'president', enrollment_track: 'L3 Informatique', first_name: 'Cy', last_name: 'Prez', telegram: '@cyprez' }),
-    makeMember({ id: 4, status: 'honorary_president', enrollment_track: 'Autre', first_name: 'Di', last_name: 'Honor' }),
-    makeMember({ id: 5, status: 'rejected', enrollment_track: 'Autre', first_name: 'Ed', last_name: 'Nope', student_id: 'ZX-99' })
+    makeMember({
+      id: 1,
+      status: 'active',
+      enrollment_track: 'L3 Informatique',
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      email: 'ada@x.fr'
+    }),
+    makeMember({
+      id: 2,
+      status: 'pending',
+      enrollment_track: 'M1 Informatique',
+      first_name: 'Bob',
+      last_name: 'Stone',
+      notes: 'Cherche un stage'
+    }),
+    makeMember({
+      id: 3,
+      status: 'president',
+      enrollment_track: 'L3 Informatique',
+      first_name: 'Cy',
+      last_name: 'Prez',
+      telegram: '@cyprez'
+    }),
+    makeMember({
+      id: 4,
+      status: 'honorary_president',
+      enrollment_track: 'Autre',
+      first_name: 'Di',
+      last_name: 'Honor'
+    }),
+    makeMember({
+      id: 5,
+      status: 'rejected',
+      enrollment_track: 'Autre',
+      first_name: 'Ed',
+      last_name: 'Nope',
+      student_id: 'ZX-99'
+    })
   ];
   const filterBy = (id, value) => {
     byId(id).value = value;
@@ -319,14 +378,23 @@ describe('filtering', () => {
 describe('populateTrackFilter', () => {
   it('lists unique tracks alphabetically after the default option', () => {
     members.populateTrackFilter([
-      makeMember({ enrollment_track: 'M1' }), makeMember({ enrollment_track: 'L3' }), makeMember({ enrollment_track: 'M1' })
+      makeMember({ enrollment_track: 'M1' }),
+      makeMember({ enrollment_track: 'L3' }),
+      makeMember({ enrollment_track: 'M1' })
     ]);
     const options = [...byId('filter-track').options].map((option) => [option.value, option.textContent]);
-    expect(options).toEqual([['', 'Tous les cursus'], ['L3', 'L3'], ['M1', 'M1']]);
+    expect(options).toEqual([
+      ['', 'Tous les cursus'],
+      ['L3', 'L3'],
+      ['M1', 'M1']
+    ]);
   });
 
   it('escapes tracks so they cannot inject options or attributes', () => {
-    members.populateTrackFilter([makeMember({ enrollment_track: XSS_ATTRIBUTE }), makeMember({ enrollment_track: XSS_APOSTROPHE })]);
+    members.populateTrackFilter([
+      makeMember({ enrollment_track: XSS_ATTRIBUTE }),
+      makeMember({ enrollment_track: XSS_APOSTROPHE })
+    ]);
     const select = byId('filter-track');
     expect(select.querySelector('img')).toBeNull();
     expect(select.options).toHaveLength(3);
@@ -387,7 +455,9 @@ describe('selection', () => {
 
   it('select-all only selects members that pass the current filters', () => {
     state.members = [
-      makeMember({ id: 1, status: 'active' }), makeMember({ id: 2, status: 'pending' }), makeMember({ id: 3, status: 'pending' })
+      makeMember({ id: 1, status: 'active' }),
+      makeMember({ id: 2, status: 'pending' }),
+      makeMember({ id: 3, status: 'pending' })
     ];
     byId('filter-status').value = 'pending';
     members.renderMembers(state.members);

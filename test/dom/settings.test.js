@@ -20,7 +20,9 @@ describe('loadSettings', () => {
   // GET /api/admin/settings returns PARSED values: only a real boolean false closes the memberships,
   // and a missing value means open (like the server's default). The strings "true"/"false" are not special.
   it.each([
-    [true, true], [false, false], [undefined, true]
+    [true, true],
+    [false, false],
+    [undefined, true]
   ])('shows membership_open=%j as checked=%s', async (value, checked) => {
     api.mockResolvedValue({ settings: { membership_open: value, current_year: '2026-2027' } });
     byId('setting-membership-open').checked = !checked;

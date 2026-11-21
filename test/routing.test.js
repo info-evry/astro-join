@@ -5,8 +5,16 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 import { SELF, env } from 'cloudflare:test';
 import { createRouter } from '../src/routes.js';
 import {
-  BASE, ADMIN_TOKEN, adminHeaders, setupSchema, resetMembers,
-  insertMember, getMember, adminFetch, applyFetch, validApplication
+  BASE,
+  ADMIN_TOKEN,
+  adminHeaders,
+  setupSchema,
+  resetMembers,
+  insertMember,
+  getMember,
+  adminFetch,
+  applyFetch,
+  validApplication
 } from './helpers.js';
 
 beforeAll(setupSchema);
@@ -27,17 +35,14 @@ const ADMIN_ROUTES = [
 ];
 
 describe('unknown paths', () => {
-  it.each([
-    '/nope',
-    '/a/b/c/d/e/f/g/h',
-    '/%2e%2e/%2e%2e/etc/passwd',
-    '/adhesion/nope',
-    '/robots.txt'
-  ])('GET %s is a 404, never a 500', async (path) => {
-    const response = await SELF.fetch(`${BASE}${path}`);
-    expect(response.status).toBe(404);
-    await response.arrayBuffer();
-  });
+  it.each(['/nope', '/a/b/c/d/e/f/g/h', '/%2e%2e/%2e%2e/etc/passwd', '/adhesion/nope', '/robots.txt'])(
+    'GET %s is a 404, never a 500',
+    async (path) => {
+      const response = await SELF.fetch(`${BASE}${path}`);
+      expect(response.status).toBe(404);
+      await response.arrayBuffer();
+    }
+  );
 
   it.each([
     '/api/nope',
@@ -137,19 +142,18 @@ describe('cross-origin protections', () => {
 });
 
 describe('admin route registry', () => {
-  const registered = createRouter().routes
-    .filter((route) => route.pattern.source.includes(String.raw`api\/admin`));
+  const registered = createRouter().routes.filter((route) => route.pattern.source.includes(String.raw`api\/admin`));
 
   it('the table lists every admin route registered in src/routes.js', () => {
-    const uncovered = registered.filter((route) =>
-      !ADMIN_ROUTES.some(([method, path]) => route.method === method && route.pattern.test(path))
+    const uncovered = registered.filter(
+      (route) => !ADMIN_ROUTES.some(([method, path]) => route.method === method && route.pattern.test(path))
     );
     expect(uncovered.map((route) => `${route.method} ${route.pattern.source}`)).toEqual([]);
   });
 
   it('the table has no entry that matches no registered admin route', () => {
-    const stale = ADMIN_ROUTES.filter(([method, path]) =>
-      !registered.some((route) => route.method === method && route.pattern.test(path))
+    const stale = ADMIN_ROUTES.filter(
+      ([method, path]) => !registered.some((route) => route.method === method && route.pattern.test(path))
     );
     expect(stale).toEqual([]);
   });
@@ -375,11 +379,12 @@ describe('admin guard (defence in depth)', () => {
 
   it('never lets a stray CONFIG KV binding override the ADMIN_TOKEN secret', async () => {
     const fakeEnv = { DB: env.DB, ADMIN_TOKEN: 'secret-token', CONFIG: { get: async () => 'kv-token' } };
-    const call = (token) => createRouter().handle(
-      new Request(`${BASE}/api/admin/settings`, { headers: { Authorization: `Bearer ${token}` } }),
-      fakeEnv,
-      {}
-    );
+    const call = (token) =>
+      createRouter().handle(
+        new Request(`${BASE}/api/admin/settings`, { headers: { Authorization: `Bearer ${token}` } }),
+        fakeEnv,
+        {}
+      );
 
     expect((await call('secret-token')).status).toBe(200);
     expect((await call('kv-token')).status).toBe(401);
@@ -387,11 +392,12 @@ describe('admin guard (defence in depth)', () => {
 });
 
 describe('apply rate limit matches on path segments', () => {
-  const post = (path, ip) => SELF.fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip },
-    body: '{}'
-  });
+  const post = (path, ip) =>
+    SELF.fetch(`${BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip },
+      body: '{}'
+    });
 
   it('limits /api/apply and anything below it', async () => {
     const ip = '198.51.100.30';

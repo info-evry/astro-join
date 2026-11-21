@@ -4,8 +4,7 @@ import { XSS_ATTRIBUTE } from './helpers.js';
 
 describe('getContactInfo', () => {
   it('joins the available contacts with line breaks, in phone/telegram/discord order', () => {
-    expect(getContactInfo({ phone: '0102', telegram: '@tg', discord: '@dc' }))
-      .toBe('Tel: 0102<br>TG: @tg<br>DC: @dc');
+    expect(getContactInfo({ phone: '0102', telegram: '@tg', discord: '@dc' })).toBe('Tel: 0102<br>TG: @tg<br>DC: @dc');
   });
 
   it('skips missing contacts', () => {
@@ -27,14 +26,20 @@ describe('getContactInfo', () => {
 
 describe('status helpers', () => {
   it.each([
-    ['active', 'success'], ['pending', 'warning'], ['rejected', 'error'], ['expired', 'secondary']
+    ['active', 'success'],
+    ['pending', 'warning'],
+    ['rejected', 'error'],
+    ['expired', 'secondary']
   ])('maps %s to the %s badge class', (status, cssClass) => {
     expect(getStatusClass(status)).toBe(cssClass);
   });
 
-  it.each(['secretary', 'president', 'honor', 'something-else'])('falls back to the secondary class for %s', (status) => {
-    expect(getStatusClass(status)).toBe('secondary');
-  });
+  it.each(['secretary', 'president', 'honor', 'something-else'])(
+    'falls back to the secondary class for %s',
+    (status) => {
+      expect(getStatusClass(status)).toBe('secondary');
+    }
+  );
 
   it.each(['constructor', '__proto__', 'toString'])('treats the inherited name %s as an unknown status', (status) => {
     expect(getStatusClass(status)).toBe('secondary');

@@ -21,13 +21,15 @@ function handleImportFileChange(event) {
     state.importData = e.target.result;
 
     const lines = state.importData.trim().split('\n').slice(0, 6);
-    const previewHtml = lines.map((line, i) => {
-      const cells = line.split(/[,;\t]/).slice(0, 5);
-      return `<tr class="${i === 0 ? 'header-row' : ''}">
+    const previewHtml = lines
+      .map((line, i) => {
+        const cells = line.split(/[,;\t]/).slice(0, 5);
+        return `<tr class="${i === 0 ? 'header-row' : ''}">
         ${cells.map((c) => `<td>${escapeHtml(c.replaceAll(/(?:^")|(?:"$)/g, '').trim())}</td>`).join('')}
         ${cells.length < 5 ? '<td>...</td>' : ''}
       </tr>`;
-    }).join('');
+      })
+      .join('');
 
     $('import-preview-content').innerHTML = `
       <table class="data-table" style="font-size: var(--text-xs);">
@@ -65,12 +67,16 @@ async function handleImport(api, loadData) {
       <div class="import-banner success">
         ${message}
       </div>
-      ${result.errors ? `
+      ${
+        result.errors
+          ? `
         <div style="margin-top: var(--space-2); color: var(--color-error); font-size: var(--text-sm);">
           <strong>Erreurs:</strong>
           <ul>${result.errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     `;
     importResult.classList.remove('hidden');
 

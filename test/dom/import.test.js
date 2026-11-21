@@ -1,7 +1,14 @@
 /* global Event */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  mountAdminDom, byId, settle, currentToast, isHidden, click, XSS_ATTRIBUTE, XSS_APOSTROPHE
+  mountAdminDom,
+  byId,
+  settle,
+  currentToast,
+  isHidden,
+  click,
+  XSS_ATTRIBUTE,
+  XSS_APOSTROPHE
 } from './helpers.js';
 
 let state;
@@ -125,7 +132,11 @@ describe('running the import', () => {
 
   it('disables the button and shows progress while the request is in flight', async () => {
     let finish;
-    api.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    api.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
     click(byId('import-btn'));
     await settle();
 
@@ -142,8 +153,9 @@ describe('running the import', () => {
     await run();
 
     expect(isHidden('import-result')).toBe(false);
-    expect(byId('import-result').querySelector('.import-banner.success').textContent.trim())
-      .toBe('Import terminé: 2 ajouté(s), 1 mis à jour');
+    expect(byId('import-result').querySelector('.import-banner.success').textContent.trim()).toBe(
+      'Import terminé: 2 ajouté(s), 1 mis à jour'
+    );
     expect(byId('import-result').textContent).not.toContain('ignoré');
     expect(byId('import-result').textContent).not.toContain('Erreurs');
     expect(currentToast().textContent).toBe('Import terminé: 2 ajouté(s), 1 mis à jour');
@@ -165,7 +177,8 @@ describe('running the import', () => {
     expect(text).toContain('2 ignoré(s)');
     expect(text).toContain('Erreurs');
     expect([...byId('import-result').querySelectorAll('li')].map((li) => li.textContent)).toEqual([
-      'Row 3: Invalid email format', 'Row 5: Missing required fields'
+      'Row 3: Invalid email format',
+      'Row 5: Missing required fields'
     ]);
   });
 
