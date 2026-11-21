@@ -9,7 +9,7 @@ import {
   ACTIVE_STATUSES,
   BATCH_STATUSES,
   BUREAU_ROLES,
-  DEFAULT_ACADEMIC_YEAR,
+  defaultAcademicYear,
   DEFAULT_ENROLLMENT_TRACKS,
   STATUS_LABELS,
   UNIQUE_BUREAU_ROLES,
@@ -164,9 +164,20 @@ describe('normalizeEmail', () => {
   });
 });
 
+describe('defaultAcademicYear', () => {
+  it.each([
+    ['in November', '2026-11-21T12:00:00Z', '2026-2027'],
+    ['on 1 September', '2026-09-01T08:00:00Z', '2026-2027'],
+    ['in August', '2026-08-31T12:00:00Z', '2025-2026'],
+    ['in January', '2027-01-15T12:00:00Z', '2026-2027']
+  ])('is the year running %s', (_label, iso, year) => {
+    expect(defaultAcademicYear(new Date(iso))).toBe(year);
+  });
+});
+
 describe('consistency with db/schema.sql', () => {
-  it('seeds the same default academic year', () => {
-    expect(schemaSql).toContain(`('current_year', '${DEFAULT_ACADEMIC_YEAR}')`);
+  it('seeds no academic year: it is computed until an admin sets one', () => {
+    expect(schemaSql).not.toMatch(/'current_year'\s*,/);
   });
 
   it('seeds the default enrollment tracks', () => {

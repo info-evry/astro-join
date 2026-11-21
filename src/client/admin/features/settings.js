@@ -7,7 +7,7 @@
  */
 import { $ } from '@info-evry/astro-design/scripts/dom';
 import { toastSuccess, toastError } from '@info-evry/astro-design/scripts/toast';
-import { DEFAULT_ACADEMIC_YEAR, DEFAULT_ENROLLMENT_TRACKS } from '../../../shared/membership.js';
+import { defaultAcademicYear, DEFAULT_ENROLLMENT_TRACKS } from '../../../shared/membership.js';
 import { fillTrackList } from '../../datalist.js';
 
 const SAVE_SETTINGS_BTN = 'save-settings-btn';
@@ -15,7 +15,7 @@ const SAVE_SETTINGS_BTN = 'save-settings-btn';
 export async function loadSettings(api) {
   const { settings } = await api('/admin/settings');
   $('setting-membership-open').checked = settings.membership_open !== false;
-  $('setting-current-year').value = settings.current_year || DEFAULT_ACADEMIC_YEAR;
+  $('setting-current-year').value = settings.current_year || defaultAcademicYear();
   // The member edit form only offers (and the API only accepts) the configured tracks
   fillTrackList($('admin-cursus-list'), settings.enrollment_tracks ?? DEFAULT_ENROLLMENT_TRACKS);
   $(SAVE_SETTINGS_BTN).disabled = true;

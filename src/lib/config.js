@@ -7,7 +7,7 @@
  * fall back to the defaults of src/shared/membership.js.
  */
 
-import { DEFAULT_ACADEMIC_YEAR, DEFAULT_ENROLLMENT_TRACKS } from '../shared/membership.js';
+import { defaultAcademicYear, DEFAULT_ENROLLMENT_TRACKS } from '../shared/membership.js';
 
 /**
  * Parse a stored setting value: JSON when valid, else the raw text.
@@ -52,7 +52,7 @@ export async function loadMembershipConfig(db) {
     currentYear:
       typeof settings.current_year === 'string' && settings.current_year
         ? settings.current_year
-        : DEFAULT_ACADEMIC_YEAR,
+        : defaultAcademicYear(),
     enrollmentTracks: isTrackList(settings.enrollment_tracks)
       ? settings.enrollment_tracks
       : [...DEFAULT_ENROLLMENT_TRACKS]

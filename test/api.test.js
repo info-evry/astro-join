@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
 import { setupSchema } from './helpers.js';
+import { defaultAcademicYear } from '../src/shared/membership.js';
 
 // Real production schema (db/schema.sql), not a hand-rolled copy
 beforeAll(setupSchema);
@@ -24,7 +25,7 @@ describe('Public API', () => {
       const data = await response.json();
       expect(data.config).toBeDefined();
       expect(data.config.membershipOpen).toBe(true);
-      expect(data.config.currentYear).toBe('2024-2025');
+      expect(data.config.currentYear).toBe(defaultAcademicYear());
     });
 
     it('should return enrollment tracks', async () => {

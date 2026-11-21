@@ -2,9 +2,8 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Badge from '@info-evry/astro-design/components/Badge.astro';
 import associationInfo from '@info-evry/knowledge/association';
-import computed from '@info-evry/knowledge/computed';
 import { LIMITS } from 'astro-core/validation';
-import { DEFAULT_ENROLLMENT_TRACKS } from '../shared/membership.js';
+import { defaultAcademicYear, DEFAULT_ENROLLMENT_TRACKS } from '../shared/membership.js';
 ---
 
 <BaseLayout
@@ -21,7 +20,7 @@ import { DEFAULT_ENROLLMENT_TRACKS } from '../shared/membership.js';
     </div>
 
     <div class="hero-content container">
-      <Badge text={`Adhésion ${computed.academicYear}`} variant="hero" showDot animated />
+      <Badge text={`Adhésion ${defaultAcademicYear()}`} variant="hero" showDot animated />
 
       <h1 class="hero-title large">
         <span class="title-line">Rejoignez</span>

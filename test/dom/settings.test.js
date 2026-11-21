@@ -1,7 +1,7 @@
 /* global Event */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mountAdminDom, byId, settle, currentToast, click, change } from './helpers.js';
-import { DEFAULT_ACADEMIC_YEAR, DEFAULT_ENROLLMENT_TRACKS } from '../../src/shared/membership.js';
+import { defaultAcademicYear, DEFAULT_ENROLLMENT_TRACKS } from '../../src/shared/membership.js';
 
 let settings;
 let api;
@@ -40,7 +40,7 @@ describe('loadSettings', () => {
 
     api.mockResolvedValueOnce({ settings: {} });
     await settings.loadSettings(api);
-    expect(byId('setting-current-year').value).toBe(DEFAULT_ACADEMIC_YEAR);
+    expect(byId('setting-current-year').value).toBe(defaultAcademicYear());
   });
 
   it('offers the configured tracks in the member edit form, or the defaults when none is configured', async () => {

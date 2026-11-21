@@ -4,7 +4,7 @@ import AdminPageHeader from '@info-evry/astro-design/components/admin/AdminPageH
 import AdminSidebar from '@info-evry/astro-design/components/admin/AdminSidebar.astro';
 import Modal from '@info-evry/astro-design/components/admin/Modal.astro';
 import { LIMITS } from 'astro-core/validation';
-import { DEFAULT_ACADEMIC_YEAR, DEFAULT_ENROLLMENT_TRACKS } from '../../shared/membership.js';
+import { defaultAcademicYear, DEFAULT_ENROLLMENT_TRACKS } from '../../shared/membership.js';
 ---
 
 <AdminLayout title="Gestion des adhesions - Asso Info Evry">
@@ -189,8 +189,8 @@ import { DEFAULT_ACADEMIC_YEAR, DEFAULT_ENROLLMENT_TRACKS } from '../../shared/m
               <input
                 type="text"
                 id="setting-current-year"
-                value={DEFAULT_ACADEMIC_YEAR}
-                placeholder={DEFAULT_ACADEMIC_YEAR}
+                value={defaultAcademicYear()}
+                placeholder={defaultAcademicYear()}
               />
             </div>
           </div>

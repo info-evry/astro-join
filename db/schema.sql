@@ -54,10 +54,9 @@ CREATE TABLE IF NOT EXISTS settings (
 -- `status` is free text on purpose (no CHECK): the values the application reads
 -- and writes are listed in src/shared/membership.js (STATUS_LABELS).
 
--- Insert default settings
--- ('current_year' must equal DEFAULT_ACADEMIC_YEAR in src/shared/membership.js:
--- a test checks it)
+-- Insert default settings. No 'current_year': until an admin sets one, the
+-- academic year running on the request date is used (defaultAcademicYear in
+-- src/shared/membership.js), so a fresh database never shows a past year.
 INSERT OR IGNORE INTO settings (key, value) VALUES
   ('membership_open', 'true'),
-  ('current_year', '2024-2025'),
   ('enrollment_tracks', '["L1 Informatique","L2 Informatique","L3 Informatique","M1 Informatique","M2 Informatique","Autre"]');

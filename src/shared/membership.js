@@ -1,7 +1,7 @@
 /**
  * Membership model shared by the Worker (src/api, src/lib) and the browser
- * (src/client). Pure data and pure functions: no imports, no DOM, no Worker
- * APIs, so every consumer sees one definition of "a status", "an active
+ * (src/client). Pure data and pure functions: no DOM, no Worker APIs, and no
+ * import but the date rules of @info-evry/knowledge, so every consumer sees one definition of "a status", "an active
  * member" or "the end of the academic year".
  *
  * Status vocabulary
@@ -30,8 +30,17 @@
  * from outside it is (re)approved (see `approvalDates`).
  */
 
-/** Academic year used until an admin configures `current_year`. Keep in sync with db/schema.sql (a test checks it). */
-export const DEFAULT_ACADEMIC_YEAR = '2024-2025';
+/**
+ * Academic year used until an admin configures `current_year`: the one running
+ * on `now` (from September), so it never goes stale. db/schema.sql seeds no year.
+ * @param {Date} [now]
+ * @returns {string} e.g. `2026-2027`
+ */
+import { computeAcademicYear } from '@info-evry/knowledge/ndi/date';
+
+export function defaultAcademicYear(now = new Date()) {
+  return computeAcademicYear(now).year;
+}
 
 /** Tracks offered (and accepted) until an admin configures `enrollment_tracks`. */
 export const DEFAULT_ENROLLMENT_TRACKS = Object.freeze([
