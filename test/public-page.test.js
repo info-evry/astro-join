@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { SELF } from 'cloudflare:test';
 import { LIMITS } from 'astro-core/validation';
-import { DEFAULT_ENROLLMENT_TRACKS } from '../src/shared/membership.js';
+import { defaultAcademicYear, DEFAULT_ENROLLMENT_TRACKS } from '../src/shared/membership.js';
 import { BASE } from './helpers.js';
 
 let html;
@@ -43,5 +43,26 @@ describe('public form', () => {
 
   it('has the closed-membership notice, hidden until the configuration says so', () => {
     expect(html).toMatch(/<p[^>]*id="membership-closed"[^>]*class="[^"]*hidden/);
+  });
+});
+
+/** The text a reader sees: tags removed, runs of whitespace collapsed (as HTML renders them). */
+function visibleText(fragment) {
+  return fragment
+    .replaceAll(/<[^<>]*>/g, '')
+    .replaceAll(/\s+/g, ' ')
+    .trim();
+}
+
+describe('rendered text', () => {
+  it('links the contact channels without stray spaces', () => {
+    const start = html.indexOf('Contactez-nous');
+    expect(start).toBeGreaterThan(-1);
+    const paragraph = html.slice(start, html.indexOf('</p>', start));
+    expect(visibleText(paragraph)).toBe('Contactez-nous sur Discord, Telegram ou par email à asso@info-evry.fr.');
+  });
+
+  it('shows the running academic year in the hero badge', () => {
+    expect(html).toContain(`Adhésion ${defaultAcademicYear()}`);
   });
 });
