@@ -115,10 +115,28 @@ async function send(method, path, { body, token } = {}) {
   return SELF.fetch(`${BASE}${path}`, init);
 }
 
-/** Assert a response is never a 500 and, when it is an error, follows `{ error, code }`. */
-async function expectSafe(response, context) {
+/** True when the pathname holds a percent-escape that does not decode (`%`, `%E0%A4%A`); the query is the app's. */
+function isMalformedPath(path) {
+  try {
+    decodeURI(path.split('?')[0]);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Assert a response is never a 500 and, when it is an error, follows `{ error, code }`.
+ * Astro (>= 7.4) answers a path that does not decode with a bare 400 before the app
+ * runs: that is the one error that is not ours to shape.
+ */
+async function expectSafe(response, context, path) {
   const type = response.headers.get('Content-Type') ?? '';
   const text = await response.text();
+  if (isMalformedPath(path)) {
+    expect(response.status, `${context}: malformed path`).toBe(400);
+    return;
+  }
   expect(response.status, `${context} -> ${response.status} ${text.slice(0, 200)}`).toBeLessThan(500);
   if (response.status >= 400) {
     expect(type, context).toContain('application/json');
@@ -159,7 +177,7 @@ describe.each(ROUTES)('$label never answers 500 on hostile input', (route) => {
     const memberId = await insertMember({ status: 'active' });
     for (const [context, method, path, body] of attacksOn(route, memberId)) {
       const response = await send(method, path, { body, token: authenticated });
-      await expectSafe(response, `${authenticated ? 'auth' : 'anon'} ${context}`);
+      await expectSafe(response, `${authenticated ? 'auth' : 'anon'} ${context}`, path);
     }
     expect({}.polluted).toBeUndefined();
   }, 120_000);

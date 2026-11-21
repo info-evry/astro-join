@@ -22,17 +22,17 @@
   "author": "Asso Info Evry",
   "license": "AGPL-3.0-only",
   "dependencies": {
-    "astro": "^7.3.3",
-    "@astrojs/cloudflare": "^14.3.2",
+    "astro": "^7.4.13",
+    "@astrojs/cloudflare": "^14.4.9",
     "astro-core": "workspace:*",
     "@info-evry/astro-design": "workspace:*",
     "@info-evry/knowledge": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "^1.1.13",
-    "@vitest/coverage-v8": "^4.1.11",
-    "happy-dom": "^20.14.5",
-    "vitest": "^4.1.11",
-    "wrangler": "^4.135.0"
+    "@cloudflare/vitest-plugin": "^1.9.0",
+    "@vitest/coverage-v8": "^4.1.12",
+    "happy-dom": "^21.0.4",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.166.0"
   }
 }

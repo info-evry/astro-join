@@ -30,7 +30,6 @@ describe('unknown paths', () => {
   it.each([
     '/nope',
     '/a/b/c/d/e/f/g/h',
-    '/%E0%A4%A',
     '/%2e%2e/%2e%2e/etc/passwd',
     '/adhesion/nope',
     '/robots.txt'
@@ -49,13 +48,19 @@ describe('unknown paths', () => {
     '/api/config/',
     '/api/members/1',
     '/adhesion/api/nope',
-    '/api/%E0%A4%A',
     '/api/admin/members/1/extra'
   ])('GET %s returns a JSON 404', async (path) => {
     const response = await SELF.fetch(`${BASE}${path}`, { headers: adminHeaders });
     expect(response.status).toBe(404);
     expect(response.headers.get('Content-Type')).toContain('application/json');
     expect(await response.json()).toEqual({ error: 'Ressource introuvable', code: 'not_found' });
+  });
+
+  // Astro (>= 7.4) refuses a path that does not decode before the app runs.
+  it.each(['/%E0%A4%A', '/api/%E0%A4%A'])('GET %s (malformed escape) is a 400, never a 500', async (path) => {
+    const response = await SELF.fetch(`${BASE}${path}`, { headers: adminHeaders });
+    expect(response.status).toBe(400);
+    await response.arrayBuffer();
   });
 
   it('returns a JSON 404 for a known path with an unregistered method', async () => {
@@ -86,13 +91,20 @@ describe('unknown paths', () => {
 });
 
 describe('cross-origin protections', () => {
-  it('rejects a cross-site form-typed POST before it reaches the router', async () => {
+  // What a browser sends for a form posted from another site: Astro's origin check refuses it.
+  // (A request with neither header is not a browser's, so not a CSRF vector: Astro >= 7.4 lets
+  // it through to the router, which still requires JSON.)
+  it.each([
+    ['a foreign Origin', { Origin: 'https://evil.example' }],
+    ['Sec-Fetch-Site: cross-site', { 'Sec-Fetch-Site': 'cross-site' }]
+  ])('rejects a cross-site form-typed POST with %s before it reaches the router', async (_label, extra) => {
     const response = await SELF.fetch(`${BASE}/api/apply`, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'text/plain', ...extra },
       body: JSON.stringify(validApplication())
     });
     expect(response.status).toBe(403);
+    await response.arrayBuffer();
   });
 
   it('answers CORS preflight with 204 and the allowed origin', async () => {
